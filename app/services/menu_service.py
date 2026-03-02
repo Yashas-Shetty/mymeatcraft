@@ -36,8 +36,9 @@ async def fetch_menu_from_api() -> Dict[str, Any]:
         raise FileNotFoundError(f"Menu file not found at {file_path}")
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        with open(file_path, "r", encoding="utf-8-sig") as f:
+            raw = f.read().lstrip("\ufeff\u200b")  # Strip BOM and zero-width space
+            data = json.loads(raw)
             logger.info("Menu loaded successfully from menu.txt")
             return data
     except Exception as e:

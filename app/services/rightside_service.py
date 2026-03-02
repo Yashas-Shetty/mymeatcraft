@@ -1,6 +1,9 @@
 """
-Rightside AI service — configures inbound phone number with prompt + tools.
-No API key required. Just POST the configuration payload.
+Rightside / Rock8 Voice service — configures inbound phone number via
+https://voice.rock8.ai/inbound/configure
+
+Only phone_number and system_prompt are required.
+Tools, voice, language, and provider configs are optional (smart defaults).
 """
 import logging
 import httpx
@@ -39,7 +42,11 @@ async def get_formatted_menu_summary() -> str:
 
 
 def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
-    """Define tools in Rightside format."""
+    """
+    Define tools in Rock8 format.
+    Each parameter MUST have: name, type, description, location, required
+    location can be: "body", "query", or "header"
+    """
     return [
         {
             "name": "add_to_cart",
@@ -48,10 +55,10 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/add_to_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID", "required": True},
-                {"name": "item_name", "type": "string", "description": "Name of the menu item", "required": True},
-                {"name": "variation", "type": "string", "description": "Item variation (e.g. Half, Full)", "required": False},
-                {"name": "quantity", "type": "integer", "description": "Quantity to add", "required": False}
+                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "Name of the menu item", "location": "body", "required": True},
+                {"name": "variation", "type": "string", "description": "Item variation (e.g. Half, Full, 250gm, 500gm, 1kg)", "location": "body", "required": False},
+                {"name": "quantity", "type": "integer", "description": "Quantity to add (default 1)", "location": "body", "required": False}
             ]
         },
         {
@@ -61,7 +68,7 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/calculate_total",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID", "required": True}
+                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True}
             ]
         },
         {
@@ -71,31 +78,31 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/remove_from_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID", "required": True},
-                {"name": "item_name", "type": "string", "description": "Name of the menu item", "required": True},
-                {"name": "variation", "type": "string", "description": "Item variation", "required": False}
+                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "Name of the menu item to remove", "location": "body", "required": True},
+                {"name": "variation", "type": "string", "description": "Item variation", "location": "body", "required": False}
             ]
         },
         {
             "name": "place_order",
-            "description": "Place the final order from the cart items.",
+            "description": "Place the final order from the cart items. Call this after the customer confirms their order.",
             "method": "POST",
             "url": f"{base_url}/api/place_order",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID", "required": True},
-                {"name": "customer_phone", "type": "string", "description": "Phone number", "required": True},
-                {"name": "customer_name", "type": "string", "description": "Customer name", "required": True},
-                {"name": "order_type", "type": "string", "description": "DELIVERY or PICKUP", "required": True},
-                {"name": "address", "type": "string", "description": "Delivery address", "required": False},
-                {"name": "arrival_time", "type": "string", "description": "Expected arrival time", "required": False}
+                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
+                {"name": "customer_phone", "type": "string", "description": "Customer phone number", "location": "body", "required": True},
+                {"name": "customer_name", "type": "string", "description": "Customer name", "location": "body", "required": True},
+                {"name": "order_type", "type": "string", "description": "DELIVERY or PICKUP", "location": "body", "required": True},
+                {"name": "address", "type": "string", "description": "Delivery address (required for DELIVERY)", "location": "body", "required": False},
+                {"name": "arrival_time", "type": "string", "description": "Expected pickup/arrival time", "location": "body", "required": False}
             ]
         }
     ]
 
 
 async def build_rightside_payload() -> Dict[str, Any]:
-    """Build the full Rightside configuration payload."""
+    """Build the full configuration payload for Rock8 Voice API."""
     now = datetime.datetime.now()
     next_slot = (now + datetime.timedelta(minutes=30)).strftime("%H:%M")
     menu_summary = await get_formatted_menu_summary()
@@ -110,66 +117,49 @@ async def build_rightside_payload() -> Dict[str, Any]:
 
     system_prompt = prompt_template.format(
         current_date=now.strftime("%Y-%m-%d"),
-        caller_number="{caller_number}",  # Rightside will inject this at call time
+        caller_number="{caller_number}",
         menu_items=menu_summary,
         current_time=now.strftime("%H:%M"),
         next_slot=next_slot,
-        cart_id="{session_id}"  # Rightside will inject this at call time
+        cart_id="{session_id}"
     )
 
+    # Only phone_number and system_prompt are required.
+    # Everything else uses Rock8 smart defaults:
+    #   STT = AssemblyAI, LLM = OpenAI gpt-4o-mini, TTS = Cartesia
     return {
         "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
         "system_prompt": system_prompt,
         "tools": get_tool_definitions(settings.BASE_URL),
-        "voice": "kiran",
-        "language": "hi-IN",
-        "model_type": "standard",
-        "stt_config": {
-            "provider": "google",
-            "config": {"language_code": "hi-IN"}
-        },
-        "llm_config": {
-            "provider": "openai",
-            "config": {}
-        },
-        "tts_config": {
-            "provider": "elevenlabs",
-            "config": {}
-        },
-        "realtime_config": {
-            "provider": "livekit",
-            "config": {}
-        },
-        "vad_config": {
-            "min_silence_duration": 0.1,
-            "activation_threshold": 0.4,
-            "min_speech_duration": 0.4
-        }
+        "language": "hi",
+        "model_type": "standard"
     }
 
 
 async def configure_inbound() -> Dict[str, Any]:
-    """POST configuration to Rightside AI. No API key needed."""
+    """POST configuration to Rock8 Voice API. No API key needed."""
     payload = await build_rightside_payload()
 
-    logger.info(f"Sending config to Rightside for phone: {settings.RIGHTSIDE_PHONE_NUMBER}")
-    logger.info(f"Tools pointing to BASE_URL: {settings.BASE_URL}")
+    url = f"{settings.RIGHTSIDE_API_URL}/inbound/configure"
+    logger.info(f"Posting config to: {url}")
+    logger.info(f"Phone: {settings.RIGHTSIDE_PHONE_NUMBER}")
+    logger.info(f"Tools base URL: {settings.BASE_URL}")
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{settings.RIGHTSIDE_API_URL}/inbound/configure",
+                url,
                 headers={"Content-Type": "application/json"},
                 json=payload,
                 timeout=30.0
             )
             resp.raise_for_status()
             data = resp.json()
-            logger.info(f"Rightside configured successfully: {data}")
+            logger.info(f"Rock8 configured! Response: {data}")
             return data
     except httpx.HTTPStatusError as e:
-        logger.error(f"Rightside HTTP error {e.response.status_code}: {e.response.text}")
+        logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
         raise
     except Exception as e:
-        logger.error(f"Failed to configure Rightside: {e}")
+        logger.error(f"Failed to configure Rock8: {e}")
         raise
