@@ -1,0 +1,7 @@
+Updating configuration for SIP Trunk: ST_266BKFBsyaTQ
+Agent Updated Successfully!
+{
+  "sip_trunk_id": "ST_266BKFBsyaTQ",
+  "dispatch_rule_id": "SDR_hvgcAbzu6hT9",
+  "message": "Inbound configuration updated successfully. New dispatch_rule_id: SDR_hvgcAbzu6hT9"
+}
