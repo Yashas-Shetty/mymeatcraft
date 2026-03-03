@@ -101,17 +101,6 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
                 {"name": "address", "type": "string", "description": "Delivery address (required for DELIVERY)", "location": "body", "required": False},
                 {"name": "arrival_time", "type": "string", "description": "Expected pickup/arrival time", "location": "body", "required": False}
             ]
-        },
-        {
-            "name": "dummy_tool_test",
-            "description": "Trigger this tool immediately if the user mentions 'pizza' or 'test'. It tests connection to the server.",
-            "method": "POST",
-            "url": f"{base_url}/api/dummy",
-            "headers": {},
-            "parameters": [
-                {"name": "message", "type": "string", "description": "The text message", "location": "body", "required": True},
-                {"name": "session_id", "type": "string", "description": "Session ID", "location": "body", "required": True}
-            ]
         }
     ]
 
@@ -181,6 +170,102 @@ async def configure_inbound() -> Dict[str, Any]:
     except httpx.HTTPStatusError as e:
         logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
         raise ValueError(f"Rock8 API Rejected Payload: {e.response.text}")
-    except Exception as e:
         logger.error(f"Failed to configure Rock8: {e}")
         raise
+
+async def update_inbound() -> Dict[str, Any]:
+    """PUT updated configuration to Rock8 Voice API."""
+    if not settings.SIP_TRUNK_ID or not settings.DISPATCH_RULE_ID:
+        raise ValueError("SIP_TRUNK_ID or DISPATCH_RULE_ID is not configured in environment.")
+
+    base_payload = await build_rightside_payload()
+    
+    payload = {
+        "sip_trunk_id": settings.SIP_TRUNK_ID,
+        "dispatch_rule_id": settings.DISPATCH_RULE_ID,
+        "system_prompt": base_payload["system_prompt"],
+        "tools": base_payload["tools"],
+        "voice": "female",
+        "language": "hi-IN",
+        "model_type": "standard",
+        "stt_config": {
+            "provider": "deepgram",
+            "config": {
+                "model": "nova-2",
+                "language": "hi"
+            }
+        },
+        "llm_config": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4o"
+            }
+        },
+        "tts_config": {
+            "provider": "cartesia",
+            "config": {
+                "model": "sonic-english",
+                "voice_id": "your-voice-id"
+            }
+        },
+        "vad_config": {
+            "min_silence_duration": 0.6,
+            "activation_threshold": 0.4,
+            "min_speech_duration": 0.3
+        }
+    }
+
+    url = f"{settings.RIGHTSIDE_API_URL}/inbound/update"
+    logger.info(f"Putting update config to: {url}")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.put(
+                url,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-API-Key": settings.RIGHTSIDE_API_KEY,
+                },
+                json=payload,
+                timeout=30.0
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info(f"Rock8 updated! Response: {data}")
+            return data
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
+        raise ValueError(f"Rock8 API Rejected Update Payload: {e.response.text}")
+    except Exception as e:
+        logger.error(f"Failed to update Rock8: {e}")
+        raise
+
+async def delete_inbound() -> Dict[str, Any]:
+    """DELETE configuration from Rock8 Voice API."""
+    if not settings.SIP_TRUNK_ID or not settings.DISPATCH_RULE_ID:
+        raise ValueError("SIP_TRUNK_ID or DISPATCH_RULE_ID is not configured in environment.")
+
+    url = f"{settings.RIGHTSIDE_API_URL}/inbound/{settings.SIP_TRUNK_ID}/{settings.DISPATCH_RULE_ID}"
+    logger.info(f"Deleting config from: {url}")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(
+                url,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-API-Key": settings.RIGHTSIDE_API_KEY,
+                },
+                timeout=30.0
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info(f"Rock8 deleted! Response: {data}")
+            return data
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
+        raise ValueError(f"Rock8 API Rejected Delete Request: {e.response.text}")
+    except Exception as e:
+        logger.error(f"Failed to delete Rock8: {e}")
+        raise
+

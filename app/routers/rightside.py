@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from app.services.rightside_service import configure_inbound, build_rightside_payload
+from app.services.rightside_service import configure_inbound, build_rightside_payload, update_inbound, delete_inbound
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Rightside"])
@@ -42,4 +42,38 @@ async def preview_payload():
         payload = await build_rightside_payload()
         return payload
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/rightside/update", response_model=RightsideResponse)
+async def update_rightside():
+    """
+    Update an existing Meatcraft configuration on Rightside AI.
+    """
+    try:
+        data = await update_inbound()
+        return RightsideResponse(
+            success=True,
+            message="Rightside inbound updated successfully!",
+            data=data
+        )
+    except Exception as e:
+        logger.error(f"Update error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/rightside/delete", response_model=RightsideResponse)
+async def delete_rightside():
+    """
+    Delete the existing Meatcraft configuration from Rightside AI.
+    """
+    try:
+        data = await delete_inbound()
+        return RightsideResponse(
+            success=True,
+            message="Rightside inbound deleted successfully!",
+            data=data
+        )
+    except Exception as e:
+        logger.error(f"Delete error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
