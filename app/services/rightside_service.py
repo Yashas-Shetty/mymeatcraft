@@ -145,7 +145,7 @@ async def build_rightside_payload() -> Dict[str, Any]:
     # Everything else uses Rock8 smart defaults:
     #   STT = AssemblyAI, LLM = OpenAI gpt-4o-mini, TTS = Cartesia
     return {
-        "phone_number": settings.RIGHTSIDE_PHONE_NUMBER.replace("+", ""),
+        "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
         "system_prompt": system_prompt,
         "tools": get_tool_definitions(settings.BASE_URL),
         "language": "hi",
