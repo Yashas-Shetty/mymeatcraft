@@ -76,52 +76,52 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
     return [
         {
             "name": "add_to_cart",
-            "description": "Add an item to the shopping cart. Ask for variation if available in menu.",
+            "description": "Add an item to the shopping cart. Call this tool IMMEDIATELY every time the customer confirms they want a specific item — do not wait until the end. One call per item.",
             "method": "POST",
             "url": f"{base_url}/api/add_to_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
-                {"name": "item_name", "type": "string", "description": "Name of the menu item", "location": "body", "required": True},
-                {"name": "variation", "type": "string", "description": "Item variation (e.g. Half, Full, 250gm, 500gm, 1kg)", "location": "body", "required": False},
-                {"name": "quantity", "type": "integer", "description": "Quantity to add (default 1)", "location": "body", "required": False}
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. +919876543210). Use exactly the phone number of the person currently on the call.", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu (e.g. 'Chicken Momos', 'Lamb Shank')", "location": "body", "required": True},
+                {"name": "variation", "type": "string", "description": "Item variation if applicable (e.g. '250gm', '500gm', '1kg', 'Half', 'Full'). Omit if no variation.", "location": "body", "required": False},
+                {"name": "quantity", "type": "integer", "description": "Number of units to add. Default is 1.", "location": "body", "required": False}
             ]
         },
         {
             "name": "calculate_total",
-            "description": "Get all items currently in the cart and the total amount.",
+            "description": "Get all items currently in the cart and the total price. Call this after all items have been added and the customer says they are done ordering, before asking for order confirmation.",
             "method": "POST",
             "url": f"{base_url}/api/calculate_total",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True}
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. +919876543210). Must be the same value used in add_to_cart.", "location": "body", "required": True}
             ]
         },
         {
             "name": "remove_from_cart",
-            "description": "Remove an item from the shopping cart.",
+            "description": "Remove a specific item from the cart. Call this when the customer asks to remove or cancel a particular item.",
             "method": "POST",
             "url": f"{base_url}/api/remove_from_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
-                {"name": "item_name", "type": "string", "description": "Name of the menu item to remove", "location": "body", "required": True},
-                {"name": "variation", "type": "string", "description": "Item variation", "location": "body", "required": False}
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. +919876543210). Must be the same value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove", "location": "body", "required": True},
+                {"name": "variation", "type": "string", "description": "Variation of the item to remove, if applicable", "location": "body", "required": False}
             ]
         },
         {
             "name": "place_order",
-            "description": "Place the final order from the cart items. Call this after the customer confirms their order.",
+            "description": "Place the final order. Call this ONLY after: (1) all items are in the cart, (2) the customer has confirmed the total, (3) the customer has confirmed delivery or pickup, and (4) you have the customer's name. This sends the payment link to the customer's WhatsApp.",
             "method": "POST",
             "url": f"{base_url}/api/place_order",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Unique session ID for the call", "location": "body", "required": True},
-                {"name": "customer_phone", "type": "string", "description": "Customer phone number", "location": "body", "required": True},
-                {"name": "customer_name", "type": "string", "description": "Customer name", "location": "body", "required": True},
-                {"name": "order_type", "type": "string", "description": "DELIVERY or PICKUP", "location": "body", "required": True},
-                {"name": "address", "type": "string", "description": "Delivery address (required for DELIVERY)", "location": "body", "required": False},
-                {"name": "arrival_time", "type": "string", "description": "Expected pickup/arrival time", "location": "body", "required": False}
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. +919876543210). Must be the same value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "customer_phone", "type": "string", "description": "The caller's phone number (same as session_id)", "location": "body", "required": True},
+                {"name": "customer_name", "type": "string", "description": "Customer's name as provided during the call. Ask for it if not given.", "location": "body", "required": True},
+                {"name": "order_type", "type": "string", "description": "Must be exactly 'DELIVERY' or 'PICKUP'", "location": "body", "required": True},
+                {"name": "address", "type": "string", "description": "Full delivery address. Required only when order_type is DELIVERY.", "location": "body", "required": False},
+                {"name": "arrival_time", "type": "string", "description": "Expected pickup time. Required only when order_type is PICKUP.", "location": "body", "required": False}
             ]
         }
     ]
