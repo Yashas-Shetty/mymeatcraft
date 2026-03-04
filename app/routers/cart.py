@@ -3,6 +3,7 @@ Cart router — endpoints for managing the session-based shopping cart.
 Called by Ultravox tool-calling agent.
 """
 import logging
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,6 +23,19 @@ from app.services.menu_service import validate_item
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Cart"])
+
+
+def _resolve_session_id(session_id: Optional[str]) -> str:
+    """
+    Return a valid session_id.
+    Auto-generates a UUID if session_id is None, empty, or is the
+    unsubstituted template literal '{caller_number}'.
+    """
+    if not session_id or session_id.strip("{} ") == "caller_number":
+        new_id = str(uuid.uuid4())
+        logger.info(f"Auto-generated session_id: {new_id}")
+        return new_id
+    return session_id
 
 
 def _get_or_create_cart(db: Session, session_id: str) -> Cart:
@@ -55,6 +69,9 @@ async def add_to_cart(
         f"qty={request.quantity}"
     )
 
+    # Resolve or auto-generate session_id
+    session_id = _resolve_session_id(request.session_id)
+
     # Validate item against menu
     try:
         item_info = await validate_item(request.item_name, request.variation)
@@ -62,6 +79,7 @@ async def add_to_cart(
         logger.warning(f"Menu validation failed: {e}")
         return CartResponse(
             success=False,
+            session_id=session_id,
             message=str(e),
             cart_items=[],
             cart_total=0.0,
@@ -71,7 +89,7 @@ async def add_to_cart(
         raise HTTPException(status_code=503, detail="Menu service unavailable")
 
     # Get or create cart
-    cart = _get_or_create_cart(db, request.session_id)
+    cart = _get_or_create_cart(db, session_id)
     current_items = list(cart.items) if cart.items else []
 
     # Check for duplicate item+variation — increment quantity if found
@@ -107,14 +125,12 @@ async def add_to_cart(
     db.commit()
     db.refresh(cart)
 
-    # Build response
-    cart_items_schema = [
-        CartItemSchema(**item) for item in current_items
-    ]
+    cart_items_schema = [CartItemSchema(**item) for item in current_items]
 
     return CartResponse(
         success=True,
-        message=f"'{item_info['item_name']}' added to cart successfully",
+        session_id=session_id,
+        message=f"'{item_info['item_name']}' added to cart. session_id={session_id}",
         cart_items=cart_items_schema,
         cart_total=cart.total_amount,
     )
@@ -126,25 +142,26 @@ async def calculate_total(
     db: Session = Depends(get_db),
 ):
     """Return full cart contents and total amount."""
-    logger.info(f"Calculating total for session={request.session_id}")
+    session_id = _resolve_session_id(request.session_id)
+    logger.info(f"Calculating total for session={session_id}")
 
-    cart = db.query(Cart).filter(Cart.session_id == request.session_id).first()
+    cart = db.query(Cart).filter(Cart.session_id == session_id).first()
 
     if cart is None or not cart.items:
         return CalculateTotalResponse(
             success=True,
+            session_id=session_id,
             message="Cart is empty",
             cart_items=[],
             total_amount=0.0,
             item_count=0,
         )
 
-    cart_items_schema = [
-        CartItemSchema(**item) for item in cart.items
-    ]
+    cart_items_schema = [CartItemSchema(**item) for item in cart.items]
 
     return CalculateTotalResponse(
         success=True,
+        session_id=session_id,
         message="Cart total calculated",
         cart_items=cart_items_schema,
         total_amount=cart.total_amount,
@@ -158,16 +175,18 @@ async def remove_from_cart(
     db: Session = Depends(get_db),
 ):
     """Remove an item from the cart by name and optional variation."""
+    session_id = _resolve_session_id(request.session_id)
     logger.info(
-        f"Removing from cart: session={request.session_id}, "
+        f"Removing from cart: session={session_id}, "
         f"item={request.item_name}, variation={request.variation}"
     )
 
-    cart = db.query(Cart).filter(Cart.session_id == request.session_id).first()
+    cart = db.query(Cart).filter(Cart.session_id == session_id).first()
 
     if cart is None or not cart.items:
         return CartResponse(
             success=False,
+            session_id=session_id,
             message="Cart is empty, nothing to remove",
             cart_items=[],
             cart_total=0.0,
@@ -190,6 +209,7 @@ async def remove_from_cart(
     if len(current_items) == original_len:
         return CartResponse(
             success=False,
+            session_id=session_id,
             message=f"Item '{request.item_name}' not found in cart",
             cart_items=[CartItemSchema(**i) for i in current_items],
             cart_total=cart.total_amount,
@@ -202,6 +222,7 @@ async def remove_from_cart(
 
     return CartResponse(
         success=True,
+        session_id=session_id,
         message=f"'{request.item_name}' removed from cart",
         cart_items=[CartItemSchema(**i) for i in current_items],
         cart_total=cart.total_amount,

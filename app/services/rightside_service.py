@@ -84,14 +84,14 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
     return [
         {
             "name": "add_to_cart",
-            "description": "Add an item to the shopping cart. Call this tool IMMEDIATELY every time the customer confirms they want a specific item — do not wait until the end. One call per item.",
+            "description": "Add an item to the shopping cart. Call this tool IMMEDIATELY every time the customer confirms they want a specific item — do not wait until the end. One call per item. IMPORTANT: the response will include a 'session_id' field — save this value and use it as session_id for ALL subsequent tool calls (calculate_total, remove_from_cart, place_order).",
             "method": "POST",
             "url": f"{base_url}/api/add_to_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The phone number of the caller currently on this call. Use the caller's actual phone number as the session identifier.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Leave this empty on the first call. After the first add_to_cart, use the session_id value returned in that response for all subsequent calls.", "location": "body", "required": False},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu (e.g. 'Chicken Momos', 'Lamb Shank')", "location": "body", "required": True},
-                {"name": "variation", "type": "string", "description": "Item variation if applicable (e.g. '250gm', '500gm', '1kg', 'Half', 'Full'). Omit if no variation.", "location": "body", "required": False},
+                {"name": "variation", "type": "string", "description": "Exact variation name from menu (e.g. '1 Kg', '500 Grms', '250 Grms'). Omit if item has no variations.", "location": "body", "required": False},
                 {"name": "quantity", "type": "integer", "description": "Number of units to add. Default is 1.", "location": "body", "required": False}
             ]
         },
@@ -102,7 +102,7 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/calculate_total",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The phone number of the caller currently on this call. Must be the same value used in add_to_cart.", "location": "body", "required": True}
+                {"name": "session_id", "type": "string", "description": "The session_id returned from the first add_to_cart call.", "location": "body", "required": False}
             ]
         },
         {
@@ -112,7 +112,7 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/remove_from_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The phone number of the caller currently on this call. Must be the same value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The session_id returned from the first add_to_cart call.", "location": "body", "required": False},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Variation of the item to remove, if applicable", "location": "body", "required": False}
             ]
@@ -124,8 +124,8 @@ def get_tool_definitions(base_url: str) -> List[Dict[str, Any]]:
             "url": f"{base_url}/api/place_order",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The phone number of the caller currently on this call. Must be the same value used in add_to_cart.", "location": "body", "required": True},
-                {"name": "customer_phone", "type": "string", "description": "The caller's phone number (same as session_id)", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The session_id returned from the first add_to_cart call.", "location": "body", "required": False},
+                {"name": "customer_phone", "type": "string", "description": "The phone number of the caller. Use the CALLER PHONE value shown in your system context.", "location": "body", "required": True},
                 {"name": "customer_name", "type": "string", "description": "Customer's name as provided during the call. Ask for it if not given.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly 'DELIVERY' or 'PICKUP'", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Required only when order_type is DELIVERY.", "location": "body", "required": False},
@@ -168,12 +168,12 @@ async def build_rightside_payload() -> Dict[str, Any]:
         "language": "hi-IN",
         "model_type": "standard",
         "allowed_numbers": ["*"],
-        # ── STT: Deepgram Nova-2 tuned for Hindi ──
+        # ── STT: Deepgram Nova-2 multilingual — handles Hindi + English (Hinglish) ──
         "stt_config": {
             "provider": "deepgram",
             "config": {
                 "model": "nova-2",
-                "language": "hi",
+                "language": "multi",
                 "smart_format": True,
                 "punctuate": True,
                 "interim_results": True,
