@@ -177,7 +177,7 @@ async def build_rightside_payload() -> Dict[str, Any]:
         "realtime_config": {
             "provider": "ultravox",
             "config": {
-                "voice": "Krishna-Hindi-Urdu",
+                "voice": "Anjali-Hindi-Urdu",
                 "temperature": 0.4
             }
         },
@@ -240,7 +240,8 @@ async def update_inbound() -> Dict[str, Any]:
     payload = {
         "sip_trunk_id": settings.SIP_TRUNK_ID,
         "dispatch_rule_id": settings.DISPATCH_RULE_ID,
-        "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
+        # phone_number intentionally omitted — including it triggers a SIP trunk
+        # update internally (per Rock8 docs), which fails with "trunk id must not be set"
         "language": base_payload.get("language", "hi-IN"),
         "model_type": base_payload.get("model_type", "realtime"),
         "realtime_config": base_payload.get("realtime_config"),
@@ -249,6 +250,7 @@ async def update_inbound() -> Dict[str, Any]:
         "tools": base_payload["tools"],
     }
 
+    # API docs: PUT /inbound/update — both IDs go in the body, not the URL
     url = f"{settings.RIGHTSIDE_API_URL}/inbound/update"
     logger.info(f"Putting update config to: {url}")
 
