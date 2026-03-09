@@ -8,7 +8,7 @@ export default function App() {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const response = await fetch('http://localhost:8000/api/orders');
+                const response = await fetch('https://mymeat-afum.onrender.com/api/orders');
                 if (response.ok) {
                     const data = await response.json();
                     setOrders(data);
