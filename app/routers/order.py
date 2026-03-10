@@ -13,6 +13,7 @@ from app.schemas.order_schema import PlaceOrderRequest, PlaceOrderResponse
 from app.schemas.cart_schema import CartItemSchema
 from app.utils.id_generator import generate_order_id
 from app.services.razorpay_service import create_payment_link
+from app.services.petpooja_service import send_to_petpooja
 
 
 logger = logging.getLogger(__name__)
@@ -130,11 +131,23 @@ async def place_order(
 
     # ── Commit everything ──
     db.commit()
+    db.refresh(order)
 
     logger.info(
         f"Order {order_id} created successfully. "
         f"Total: ₹{total_amount}, Payment link: {payment_link_url}"
     )
+
+    # ── Send to PetPooja POS ──
+    try:
+        db_order_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+        success = await send_to_petpooja(order, db_order_items)
+        order.pos_status = PosStatus.SENT if success else PosStatus.FAILED
+        db.commit()
+    except Exception as e:
+        logger.error(f"PetPooja send failed for {order_id}: {e}")
+        order.pos_status = PosStatus.FAILED
+        db.commit()
 
     return PlaceOrderResponse(
         success=True,
