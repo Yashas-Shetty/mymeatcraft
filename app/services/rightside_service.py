@@ -155,7 +155,7 @@ async def build_rightside_payload() -> Dict[str, Any]:
 
     # Read the prompt template from file — SafeDict keeps un-replaced {placeholders} intact
     try:
-        with open("my meatcraftprompt.txt", "r", encoding="utf-8") as f:
+        with open("prompt.txt", "r", encoding="utf-8") as f:
             prompt_template = f.read()
     except Exception as e:
         logger.error(f"Failed to read prompt file: {e}")
@@ -177,7 +177,7 @@ async def build_rightside_payload() -> Dict[str, Any]:
         "realtime_config": {
             "provider": "ultravox",
             "config": {
-                "voice": "Riya",
+                "voice": "Krishna-Hindi-Urdu",
                 "temperature": 0.4
             }
         },
