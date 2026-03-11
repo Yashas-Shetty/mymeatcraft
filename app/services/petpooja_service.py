@@ -240,6 +240,10 @@ async def send_to_petpooja(order, order_items: list) -> bool:
     """
     payload = await build_petpooja_payload(order, order_items)
     logger.info(f"Sending order {order.order_id} to PetPooja...")
+    
+    # Print the payload to the terminal so the user can see it each time
+    print(f"\n{'='*50}\nPETPOOJA PAYLOAD FOR ORDER {order.order_id}:\n{json.dumps(payload, indent=2)}\n{'='*50}\n")
+    
     logger.info(f"PetPooja payload:\n{json.dumps(payload, indent=2)}")
 
     try:
