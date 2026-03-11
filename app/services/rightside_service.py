@@ -172,16 +172,13 @@ async def build_rightside_payload() -> Dict[str, Any]:
 
     return {
         "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
-        "voice": "Aakash-Hindi",
-        "language": "hi-IN",
-        "model_type": "standard",
         "vad_config": {
             "min_silence_duration": 0.4,
             "activation_threshold": 0.3,
             "min_speech_duration": 0.2
         },
         "system_prompt": system_prompt,
-        "tools": get_tool_definitions(),
+        "tools": get_tool_definitions()
     }
 
 
