@@ -100,7 +100,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "url": f"{base}/api/add_to_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Caller phone number exactly as in CALLER PHONE field.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Take the caller phone number exactly from the CALLER PHONE parameter.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu including any typos e.g. Mnutton Bone, Muttom Leg, Regular Chcicken, Fish Surmai Boneleess, FISH SINGHARA BONELESS.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Item variation e.g. 250 Grms, 500 Grms, 750 Grms, 1 Kg, Pcs. Omit only if item has no variation.", "location": "body", "required": False},
                 {"name": "quantity", "type": "integer", "description": "Number of units. Default is 1.", "location": "body", "required": False}
@@ -113,7 +113,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "url": f"{base}/api/remove_from_cart",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Caller phone number. Must match value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Take the caller phone number exactly from the CALLER PHONE parameter. Must match value used in add_to_cart.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove including any DB typos.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Variation of item to remove if applicable.", "location": "body", "required": False}
             ]
@@ -125,7 +125,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "url": f"{base}/api/calculate_total",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Caller phone number. Must match value used in add_to_cart.", "location": "body", "required": True}
+                {"name": "session_id", "type": "string", "description": "Take the caller phone number exactly from the CALLER PHONE parameter. Must match value used in add_to_cart.", "location": "body", "required": True}
             ]
         },
         {
@@ -135,8 +135,8 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "url": f"{base}/api/place_order",
             "headers": {},
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Caller phone number. Must match value used in add_to_cart.", "location": "body", "required": True},
-                {"name": "customer_phone", "type": "string", "description": "Caller phone number same as session_id.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Take the caller phone number exactly from the CALLER PHONE parameter. Must match value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "customer_phone", "type": "string", "description": "Take the caller phone number exactly from the CALLER PHONE parameter.", "location": "body", "required": True},
                 {"name": "customer_name", "type": "string", "description": "Customer name collected at start of call in Step 1.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly DELIVERY or PICKUP.", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Only when order_type is DELIVERY.", "location": "body", "required": False},
