@@ -31,116 +31,10 @@ logger = logging.getLogger(__name__)
 PETPOOJA_SAVE_ORDER_URL = "https://pponlineordercb.petpooja.com/save_order"
 # IST initialized above
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ITEM ID MAP  ← Mentor: replace every "FILL_IN" with PetPooja item ID
-# Key format:  "Item Name (Variation)"  or  "Item Name"  (if no variation)
-# ─────────────────────────────────────────────────────────────────────────────
-ITEM_ID_MAP: dict = {
-    # ── Chicken ──
-    "Chicken Curry Cut (250 Grms)":                "FILL_IN",
-    "Chicken Curry Cut (1 Kg)":                    "FILL_IN",
-    "Chicken Boneless Breast (250 Grms)":          "FILL_IN",
-    "Chicken Boneless Breast (500 Grms)":          "FILL_IN",
-    "Chicken Boneless Breast (750 Grms)":          "FILL_IN",
-    "Chicken Boneless Breast (1 Kg)":              "FILL_IN",
-    "Chicken Thigh Boneless (250 Grms)":           "FILL_IN",
-    "Chicken Thigh Boneless (500 Grms)":           "FILL_IN",
-    "Chicken Thigh Boneless (750 Grms)":           "FILL_IN",
-    "Chicken Thigh Boneless (1 Kg)":               "FILL_IN",
-    "Chicken Wings (250 Grms)":                    "FILL_IN",
-    "Chicken Wings (500 Grms)":                    "FILL_IN",
-    "Chicken Wings (750 Grms)":                    "FILL_IN",
-    "Chicken Wings (1 Kg)":                        "FILL_IN",
-    "Chicken Kalmi (250 Grms)":                    "FILL_IN",
-    "Chicken Kalmi (500 Grms)":                    "FILL_IN",
-    "Chicken Kalmi (750 Grms)":                    "FILL_IN",
-    "Chicken Kalmi (1 Kg)":                        "FILL_IN",
-    "Chicken Tangri (250 Grms)":                   "FILL_IN",
-    "Chicken Tangri (500 Grms)":                   "FILL_IN",
-    "Chicken Tangri (750 Grms)":                   "FILL_IN",
-    "Chicken Tangri (1 Kg)":                       "FILL_IN",
-    "Chicken Full Leg (250 Grms)":                 "FILL_IN",
-    "Chicken Full Leg (500 Grms)":                 "FILL_IN",
-    "Chicken Full Leg (1 Kg)":                     "FILL_IN",
-    "Chicken Keema (250 Grms)":                    "FILL_IN",
-    "Chicken Keema (500 Grms)":                    "FILL_IN",
-    "Chicken Keema (1 Kg)":                        "FILL_IN",
-    "Chicken Liver (1 Kg)":                        "FILL_IN",
-    "Regular Chicken (1 Kg)":                      "FILL_IN",
-    "Chicken Broiler (Pcs)":                       "FILL_IN",
-    "Chicken Lollipop (500 Grms)":                 "FILL_IN",
-    "Chicken Lollipop (1 Kg)":                     "FILL_IN",
-    "Chicken Bones (1 Kg)":                        "FILL_IN",
-    "Chicken Boneless Breast With Wings (1 Kg)":   "FILL_IN",
-    "Chicken Breast With Bone (1 Kg)":             "FILL_IN",
-    # ── Mutton ──
-    "Mutton Curry Cut (250 Grms)":                 "FILL_IN",
-    "Mutton Curry Cut (500 Grms)":                 "FILL_IN",
-    "Mutton Curry Cut (750 Grms)":                 "FILL_IN",
-    "Mutton Curry Cut (1 Kg)":                     "FILL_IN",
-    "Mutton Boneless (250 Grms)":                  "FILL_IN",
-    "Mutton Boneless (1 Kg)":                      "FILL_IN",
-    "Mutton Keema (250 Grms)":                     "FILL_IN",
-    "Mutton Keema (500 Grms)":                     "FILL_IN",
-    "Mutton Keema (750 Grms)":                     "FILL_IN",
-    "Mutton Keema (1 Kg)":                         "FILL_IN",
-    "Mutton Chop (250 Grms)":                      "FILL_IN",
-    "Mutton Chop (500 Grms)":                      "FILL_IN",
-    "Mutton Chop (750 Grms)":                      "FILL_IN",
-    "Mutton Chop (1 Kg)":                          "FILL_IN",
-    "Mutton Nali (250 Grms)":                      "FILL_IN",
-    "Mutton Nali (500 Grms)":                      "FILL_IN",
-    "Mutton Nali (750 Grms)":                      "FILL_IN",
-    "Mutton Nali (1 Kg)":                          "FILL_IN",
-    "Mutton Barra (250 Grms)":                     "FILL_IN",
-    "Mutton Barra (500 Grms)":                     "FILL_IN",
-    "Mutton Barra (750 Grms)":                     "FILL_IN",
-    "Mutton Barra (1 Kg)":                         "FILL_IN",
-    "Mutton Leg (250 Grms)":                       "FILL_IN",
-    "Mutton Leg (500 Grms)":                       "FILL_IN",
-    "Mutton Leg (750 Grms)":                       "FILL_IN",
-    "Mutton Leg (1 Kg)":                           "FILL_IN",
-    "Mutton Liver (250 Grms)":                     "FILL_IN",
-    "Mutton Liver (500 Grms)":                     "FILL_IN",
-    "Mutton Liver (750 Grms)":                     "FILL_IN",
-    "Mutton Liver (1 Kg)":                         "FILL_IN",
-    "Mutton Gurde Kapoore (250 Grms)":             "FILL_IN",
-    "Mutton Gurde Kapoore (500 Grms)":             "FILL_IN",
-    "Mutton Gurde Kapoore (750 Grms)":             "FILL_IN",
-    "Mutton Gurde Kapoore (1 Kg)":                 "FILL_IN",
-    "Mutton Bone (1 Kg)":                          "FILL_IN",
-    "Mutton Head Cut (1 Kg)":                      "FILL_IN",
-    "Mutton Fat (1 Kg)":                           "FILL_IN",
-    "Roasted Paya (1 Kg)":                         "FILL_IN",
-    "Goat Brain (1 Kg)":                           "FILL_IN",
-    "Lamb Shank (1 Kg)":                           "FILL_IN",
-    # ── Sea Food ──
-    "Fish Basa Imported (1 Kg)":                   "FILL_IN",
-    "Fish Surmai Boneless (250 Grms)":             "FILL_IN",
-    "Fish Surmai Boneless (500 Grms)":             "FILL_IN",
-    "Fish Surmai Boneless (750 Grms)":             "FILL_IN",
-    "Fish Surmai Boneless (1 Kg)":                 "FILL_IN",
-    "Fish River Sole Boneless (250 Grms)":         "FILL_IN",
-    "Fish River Sole Boneless (500 Grms)":         "FILL_IN",
-    "Fish River Sole Boneless (750 Grms)":         "FILL_IN",
-    "Fish River Sole Boneless (1 Kg)":             "FILL_IN",
-    "Fish Singhara Boneless (250 Grms)":           "FILL_IN",
-    "Fish Singhara Boneless (500 Grms)":           "FILL_IN",
-    "Fish Singhara Boneless (750 Grms)":           "FILL_IN",
-    "Fish Singhara Boneless (1 Kg)":               "FILL_IN",
-}
+from app.services.menu_service import get_menu
 
 
-def _get_item_id(item_name: str, variation: str | None) -> str:
-    """Return PetPooja item ID for an item+variation combo."""
-    key = f"{item_name} ({variation})" if variation else item_name
-    item_id = ITEM_ID_MAP.get(key, "FILL_IN")
-    if item_id == "FILL_IN":
-        logger.warning(f"PetPooja item ID not mapped for: '{key}'")
-    return item_id
-
-
-def build_petpooja_payload(order, order_items: list) -> dict:
+async def build_petpooja_payload(order, order_items: list) -> dict:
     """
     Build the PetPooja save_order JSON payload from an Order and its items.
     Credentials are read from the .env file via settings.
@@ -153,26 +47,123 @@ def build_petpooja_payload(order, order_items: list) -> dict:
         else "D"
     )
 
-    # Build items list in PetPooja format
+    # Dynamic prep time based on total amount
+    total_amt = float(order.total_amount)
+    if total_amt > 1000:
+        min_prep_time = 45
+    elif total_amt > 500:
+        min_prep_time = 30
+    else:
+        min_prep_time = 20
+
+    menu_data = await get_menu()
+    items_list = menu_data.get("items", [])
+    taxes_list = menu_data.get("taxes", [])
+    taxes_lookup = {str(t.get("taxid", "")): t for t in taxes_list}
+
     petpooja_items = []
+    tax_details_dict = {}
+
     for item in order_items:
-        item_id = _get_item_id(item.item_name, item.variation)
-        full_name = f"{item.item_name} {item.variation}" if item.variation else item.item_name
+        # 1. Match item by name
+        matched_item = None
+        for mi in items_list:
+            if mi.get("itemname", "").lower() == item.item_name.lower():
+                matched_item = mi
+                break
+
+        if not matched_item:
+            # Try fuzzy match
+            for mi in items_list:
+                name = mi.get("itemname", "")
+                if item.item_name.lower() in name.lower() or name.lower() in item.item_name.lower():
+                    matched_item = mi
+                    break
+        
+        if not matched_item:
+            logger.warning(f"Item not found in menu for PetPooja payload: {item.item_name}")
+            # Fallback for missing items
+            matched_item = {
+                "itemid": "0000",
+                "itemname": item.item_name,
+                "tax_inclusive": False,
+                "gst_liability": "restaurant",
+                "item_tax": ""
+            }
+
+        # 2. Match variation
+        matched_var = None
+        variation_name = ""
+        variation_id = ""
+        variations = matched_item.get("variation", [])
+        
+        if item.variation and variations:
+            for v in variations:
+                if v.get("name", "").replace(" ", "").lower() == item.variation.replace(" ", "").lower():
+                    matched_var = v
+                    break
+        
+        if matched_var:
+            variation_id = matched_var.get("id", "")
+            variation_name = matched_var.get("name", "")
+
+        # 3. Handle taxes
+        item_taxes = []
+        item_tax_str = matched_item.get("item_tax", "")
+        tax_ids = [tid.strip() for tid in item_tax_str.split(',')] if item_tax_str else []
+        
+        gross_amount = float(item.price) * int(item.quantity)
+        
+        for tid in tax_ids:
+            if tid in taxes_lookup:
+                tax_info = taxes_lookup[tid]
+                tax_pct = float(tax_info.get("tax", 0))
+                
+                if matched_item.get("tax_inclusive", False):
+                    tax_amt = gross_amount - (gross_amount / (1 + (tax_pct / 100)))
+                else:
+                    tax_amt = gross_amount * (tax_pct / 100)
+                
+                tax_amt = round(tax_amt, 2)
+                item_taxes.append({
+                    "id": tid,
+                    "name": tax_info.get("taxname", ""),
+                    "tax_percentage": str(tax_pct),
+                    "amount": tax_amt
+                })
+                
+                if tid in tax_details_dict:
+                    tax_details_dict[tid]["tax"] += tax_amt
+                    tax_details_dict[tid]["tax"] = round(tax_details_dict[tid]["tax"], 2)
+                    tax_details_dict[tid]["restaurant_liable_amt"] = round(tax_details_dict[tid]["tax"], 2)
+                else:
+                    tax_details_dict[tid] = {
+                        "id": tid,
+                        "title": tax_info.get("taxname", ""),
+                        "type": order_type_code,
+                        "price": tax_pct,
+                        "tax": tax_amt,
+                        "restaurant_liable_amt": tax_amt
+                    }
+
         petpooja_items.append({
-            "id": item_id,
-            "name": full_name,
+            "id": matched_item.get("itemid", ""),
+            "name": matched_item.get("itemname", item.item_name),
             "price": f"{item.price:.2f}",
             "item_discount": "0",
             "final_price": f"{item.final_price:.2f}",
             "quantity": str(item.quantity),
-            "description": "",
-            "variation_name": item.variation or "",
-            "variation_id": "",
-            "tax_inclusive": False,
-            "gst_liability": "restaurant",
-            "item_tax": [],
-            "AddonItem": {"details": []},
+            "description": matched_item.get("itemdescription", ""),
+            "variation_name": variation_name,
+            "variation_id": variation_id,
+            "tax_inclusive": matched_item.get("tax_inclusive", False),
+            "gst_liability": matched_item.get("gst_liability", "restaurant"),
+            "item_tax": item_taxes,
+            "AddonItem": {"details": []}
         })
+
+    tax_details = list(tax_details_dict.values())
+    tax_total = sum(float(t["tax"]) for t in tax_details)
 
     # Strip + from phone for PetPooja
     phone = str(order.customer_phone or "").replace("+", "").strip()
@@ -221,19 +212,19 @@ def build_petpooja_payload(order, order_items: list) -> dict:
                         "payment_type":     "ONLINE",
                         "discount_total":   "0",
                         "discount_type":    "F",
-                        "tax_total":        "0.00",
+                        "tax_total":        f"{tax_total:.2f}",
                         "total":            f"{order.total_amount:.2f}",
                         "description":      "",
                         "created_on":       now_ist.strftime("%Y-%m-%d %H:%M:%S"),
                         "enable_delivery":  1,
-                        "min_prep_time":    20,
+                        "min_prep_time":    min_prep_time,
                         "callback_url":     "NA",
                         "collect_cash":     "0",
                         "otp":              "",
                     }
                 },
                 "OrderItem": {"details": petpooja_items},
-                "Tax":       {"details": []},
+                "Tax":       {"details": tax_details},
             }
         },
         "udid":        "",
@@ -247,7 +238,7 @@ async def send_to_petpooja(order, order_items: list) -> bool:
     Returns True on success, False on failure.
     order.pos_status is updated by the caller (order.py).
     """
-    payload = build_petpooja_payload(order, order_items)
+    payload = await build_petpooja_payload(order, order_items)
     logger.info(f"Sending order {order.order_id} to PetPooja...")
     logger.info(f"PetPooja payload:\n{json.dumps(payload, indent=2)}")
 
