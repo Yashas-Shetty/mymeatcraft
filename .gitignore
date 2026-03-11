@@ -154,3 +154,4 @@ cython_debug/
 # Project specific
 *.db
 frontend/node_modules/
+payload_dump.json
