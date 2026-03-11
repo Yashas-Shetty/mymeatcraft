@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2, UtensilsCrossed } from 'lucide-react';
 
-const API = 'https://mymeat-afum.onrender.com';
+const API = import.meta.env.VITE_API_URL;
 const LOCAL_API = 'http://localhost:8000';
 const STATUS_KEY = 'mc_order_statuses';
 
