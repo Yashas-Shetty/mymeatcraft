@@ -44,7 +44,7 @@ async def place_order(
         f"phone={request.customer_phone}, type={request.order_type}"
     )
     print(f"\n==============================================")
-    print(f"📞 AAKASH CALLED: PLACE ORDER")
+    print(f"📞 Riya CALLED: PLACE ORDER")
     print(f"📞 DETECTED CALLER PHONE: {request.session_id}")
     print(f"==============================================\n")
 

@@ -159,7 +159,7 @@ async def build_rightside_payload() -> Dict[str, Any]:
             prompt_template = f.read()
     except Exception as e:
         logger.error(f"Failed to read prompt file: {e}")
-        prompt_template = "You are Aakash, a Meatcraft assistant. Help the user order."
+        prompt_template = "You are Riya, a Meatcraft assistant. Help the user order."
 
     format_kwargs = {
         "current_date": now.strftime("%Y-%m-%d"),
@@ -172,6 +172,14 @@ async def build_rightside_payload() -> Dict[str, Any]:
 
     return {
         "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
+        "voice": "faf0731e-dfb9-4cfc-8119-259a79b27e12",
+        "stt_config": {
+            "provider": "deepgram",
+            "config": {
+                "model": "nova-3",
+                "language": "hi"
+            }
+        },
         "vad_config": {
             "min_silence_duration": 0.4,
             "activation_threshold": 0.3,

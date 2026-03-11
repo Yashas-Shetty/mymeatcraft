@@ -10,7 +10,7 @@ from app.services.petpooja_service import build_petpooja_payload
 # ── Mock order object ──────────────────────────────────────────────────────
 class MockOrder:
     order_id      = "MC-9925GD"
-    customer_name = "Aakash"
+    customer_name = "Riya"
     customer_phone= "+919876543210"
     address       = None
     order_type    = "PICKUP"
