@@ -214,7 +214,7 @@ async def build_petpooja_payload(order, order_items: list) -> dict:
                         "discount_type":    "F",
                         "tax_total":        f"{tax_total:.2f}",
                         "total":            f"{order.total_amount:.2f}",
-                        "description":      "",
+                        "description":      f"Pickup Time: {order.arrival_time}" if order_type_code == "P" and order.arrival_time else "",
                         "created_on":       now_ist.strftime("%Y-%m-%d %H:%M:%S"),
                         "enable_delivery":  1,
                         "min_prep_time":    min_prep_time,
