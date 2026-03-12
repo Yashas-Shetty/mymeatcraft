@@ -1,6 +1,7 @@
 """
 Order and OrderItem SQLAlchemy models.
 """
+# arrival_time column added to orders table
 import enum
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import (
