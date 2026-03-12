@@ -128,7 +128,10 @@ For masale items: Tell fixed price directly.
 
 **Step 5 — Add each item immediately after confirmation:**
 Call `add_to_cart` right away. Do not batch or wait.
-- `session_id`: caller's real phone number (from metadata or asked in Step 1). Do not use placeholders.
+- `session_id`: MUST be the caller's actual phone number — digits only (e.g. +919876543210 or 9876543210). 
+  NEVER pass a name like "Rahul", NEVER pass the literal string "phone_number", NEVER pass a placeholder. 
+  If you are unsure what the caller's phone is, ask them: "Aapka phone number bata dein please."
+  The backend will REJECT any non-numeric session_id with an error — you MUST fix it before retrying.
 - `item_name`: exact name from MENU — never translate or paraphrase
 - `variation`: exact variation from menu (e.g. "500 Grms", "1 Kg", "Pcs") — omit for masale
 - `quantity`: calculated quantity (e.g. for 2 kg when only 1 Kg variation exists → quantity 2, for 2 kg when only 500 Grms exists → quantity 4)

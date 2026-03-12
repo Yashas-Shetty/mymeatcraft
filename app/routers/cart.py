@@ -62,6 +62,21 @@ async def add_to_cart(
         session_id = request.session_id
         logger.info(f"[CALLER] Header absent/invalid ('{real_phone}'), using AI session_id: {session_id}")
 
+    # ── Validate session_id looks like a real phone number ──
+    import re
+    digits_only = re.sub(r"[\s\+\-\(\)]", "", session_id)
+    if not digits_only.isdigit() or len(digits_only) < 7:
+        logger.warning(f"[CALLER] Rejected invalid session_id: '{session_id}' — not a phone number")
+        return CartResponse(
+            success=False,
+            message=(
+                f"session_id '{session_id}' is not a valid phone number. "
+                "You MUST pass the caller's actual phone number (digits only, e.g. +919876543210) as session_id."
+            ),
+            cart_items=[],
+            cart_total=0.0,
+        )
+
     logger.info(
         f"Adding to cart: session={session_id}, "
         f"item={request.item_name}, variation={request.variation}, "
