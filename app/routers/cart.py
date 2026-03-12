@@ -53,9 +53,21 @@ async def add_to_cart(
     Real caller phone is extracted from X-Caller-Number header (Rock8 injects SIP FROM).
     """
     # Use session_id (UUID) as cart key; caller_number is optional metadata
-    session_id = request.session_id
+    raw_session = request.session_id.strip()
+    # Safeguard: if AI sends a phone number as session_id, convert it to a stable UUID-like key
+    import re
+    import uuid
+    digits_only = re.sub(r"[\s\+\-\(\)]", "", raw_session)
+    if digits_only.isdigit() and len(digits_only) >= 7:
+        # Derive a deterministic UUID from the phone so all AI calls for same phone map to same cart
+        session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, digits_only))
+        logger.warning(f"[SESSION] AI sent phone as session_id '{raw_session}' → normalised to UUID {session_id}")
+    else:
+        session_id = raw_session
+
     caller = request.caller_number or "unknown"
     logger.info(f"[CART] add_to_cart: session={session_id}, caller={caller}, item={request.item_name}")
+
 
     print(f"\n==============================================")
     print(f"📞 Riya CALLED: ADD TO CART")
@@ -141,8 +153,13 @@ async def calculate_total(
     print(f"📞 CALLER NUMBER: {request.caller_number}")
     print(f"==============================================\n")
 
+    import re, uuid as _uuid
+    raw_s = request.session_id.strip()
+    _digits = re.sub(r"[\s\+\-\(\)]", "", raw_s)
+    _calc_session = str(_uuid.uuid5(_uuid.NAMESPACE_DNS, _digits)) if (_digits.isdigit() and len(_digits) >= 7) else raw_s
 
-    cart = db.query(Cart).filter(Cart.session_id == request.session_id).first()
+    cart = db.query(Cart).filter(Cart.session_id == _calc_session).first()
+
 
     if cart is None or not cart.items:
         return CalculateTotalResponse(
