@@ -52,41 +52,34 @@ async def add_to_cart(
     If item+variation already exists, increments quantity.
     Real caller phone is extracted from X-Caller-Number header (Rock8 injects SIP FROM).
     """
-    # ── Extract real caller number from Rock8 SIP header ──
-    real_phone = raw_request.headers.get("x-caller-number", "").strip()
-    # Validate: not empty, not a literal placeholder like {caller_number}
-    if real_phone and not real_phone.startswith("{"):
-        session_id = real_phone
-        logger.info(f"[CALLER] Using SIP header phone: {real_phone}")
-    else:
-        session_id = request.session_id
-        logger.info(f"[CALLER] Header absent/invalid ('{real_phone}'), using AI session_id: {session_id}")
-
-    # ── Validate session_id looks like a real phone number ──
+    # ── Validate caller_number looks like a real phone number ──
     import re
-    digits_only = re.sub(r"[\s\+\-\(\)]", "", session_id)
+    digits_only = re.sub(r"[\s\+\-\(\)]", "", request.caller_number)
     if not digits_only.isdigit() or len(digits_only) < 7:
-        logger.warning(f"[CALLER] Rejected invalid session_id: '{session_id}' — not a phone number")
+        logger.warning(f"[CALLER] Rejected invalid caller_number: '{request.caller_number}'")
         return CartResponse(
             success=False,
             message=(
-                f"session_id '{session_id}' is not a valid phone number. "
-                "You MUST pass the caller's actual phone number (digits only, e.g. +919876543210) as session_id."
+                f"caller_number '{request.caller_number}' is not a valid phone number. "
+                "Pass the caller's actual phone number (digits, e.g. +919876543210)."
             ),
             cart_items=[],
             cart_total=0.0,
         )
 
+    # Use session_id (UUID) as cart key, caller_number for phone tracking
+    session_id = request.session_id
+    logger.info(f"[CART] session={session_id}, caller={request.caller_number}")
     logger.info(
-        f"Adding to cart: session={session_id}, "
+        f"Adding to cart: session={session_id}, caller={request.caller_number}, "
         f"item={request.item_name}, variation={request.variation}, "
         f"qty={request.quantity}"
     )
 
-    # Validate item against menu
     print(f"\n==============================================")
     print(f"📞 Riya CALLED: ADD TO CART")
-    print(f"📞 DETECTED CALLER PHONE: {request.session_id}")
+    print(f"📞 SESSION ID: {request.session_id}")
+    print(f"📞 CALLER NUMBER: {request.caller_number}")
     print(f"==============================================\n")
 
     try:
@@ -160,10 +153,11 @@ async def calculate_total(
     db: Session = Depends(get_db),
 ):
     """Return full cart contents and total amount."""
-    logger.info(f"Calculating total for session={request.session_id}")
+    logger.info(f"Calculating total for session={request.session_id}, caller={request.caller_number}")
     print(f"\n==============================================")
     print(f"📞 Riya CALLED: CALCULATE TOTAL")
-    print(f"📞 DETECTED CALLER PHONE: {request.session_id}")
+    print(f"📞 SESSION ID: {request.session_id}")
+    print(f"📞 CALLER NUMBER: {request.caller_number}")
     print(f"==============================================\n")
 
 
@@ -198,12 +192,13 @@ async def remove_from_cart(
 ):
     """Remove an item from the cart by name and optional variation."""
     logger.info(
-        f"Removing from cart: session={request.session_id}, "
+        f"Removing from cart: session={request.session_id}, caller={request.caller_number}, "
         f"item={request.item_name}, variation={request.variation}"
     )
     print(f"\n==============================================")
     print(f"📞 Riya CALLED: REMOVE FROM CART")
-    print(f"📞 DETECTED CALLER PHONE: {request.session_id}")
+    print(f"📞 SESSION ID: {request.session_id}")
+    print(f"📞 CALLER NUMBER: {request.caller_number}")
     print(f"==============================================\n")
 
 

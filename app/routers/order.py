@@ -30,22 +30,18 @@ async def place_order(
     Place an order from the current cart.
     Real caller phone is extracted from X-Caller-Number header (injected by Rock8/SIP).
     """
-    # ── Extract real caller phone from Rock8 header, override AI-provided value ──
-    real_phone = raw_request.headers.get("x-caller-number", "").strip()
-    if real_phone and not real_phone.startswith("{"):
-        customer_phone = real_phone
-        logger.info(f"[CALLER] place_order using SIP header phone: {real_phone}")
-    else:
-        customer_phone = request.customer_phone
-        logger.info(f"[CALLER] place_order header absent, using AI phone: {customer_phone}")
+    # ── Use caller_number as the real phone number ──
+    customer_phone = request.caller_number
+    logger.info(f"[CALLER] place_order using caller_number: {customer_phone}")
 
     logger.info(
         f"Placing order: session={request.session_id}, "
-        f"phone={request.customer_phone}, type={request.order_type}"
+        f"caller={request.caller_number}, type={request.order_type}"
     )
     print(f"\n==============================================")
     print(f"📞 Riya CALLED: PLACE ORDER")
-    print(f"📞 DETECTED CALLER PHONE: {request.session_id}")
+    print(f"📞 SESSION ID: {request.session_id}")
+    print(f"📞 CALLER NUMBER: {request.caller_number}")
     print(f"==============================================\n")
 
 
@@ -64,9 +60,8 @@ async def place_order(
             message="Address is required for DELIVERY orders.",
         )
 
-    # ── Get cart ──
-    # Cart was created with session_id = real caller phone (from X-Caller-Number header)
-    cart = db.query(Cart).filter(Cart.session_id == customer_phone).first()
+    # ── Get cart by session_id (UUID) ──
+    cart = db.query(Cart).filter(Cart.session_id == request.session_id).first()
     if cart is None or not cart.items:
         return PlaceOrderResponse(
             success=False,

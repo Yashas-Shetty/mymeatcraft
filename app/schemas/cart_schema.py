@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field
 
 class AddToCartRequest(BaseModel):
     """Request body for adding an item to the cart."""
-    session_id: str = Field(..., description="Unique session identifier")
+    session_id: str = Field(..., description="Unique session ID (UUID) for the cart")
+    caller_number: str = Field(..., description="Caller's actual phone number (e.g. +919876543210)")
     item_name: str = Field(..., description="Name of the menu item")
     variation: Optional[str] = Field(None, description="Item variation (e.g., Half, Full)")
     quantity: int = Field(1, ge=1, description="Quantity to add")
@@ -15,7 +16,8 @@ class AddToCartRequest(BaseModel):
 
 class CalculateTotalRequest(BaseModel):
     """Request body for calculating cart total."""
-    session_id: str = Field(..., description="Unique session identifier")
+    session_id: str = Field(..., description="Unique session ID (UUID) for the cart")
+    caller_number: str = Field(..., description="Caller's actual phone number")
 
 
 class CartItemSchema(BaseModel):
@@ -46,6 +48,8 @@ class CalculateTotalResponse(BaseModel):
 
 class RemoveFromCartRequest(BaseModel):
     """Request body for removing an item from the cart."""
-    session_id: str = Field(..., description="Unique session identifier")
+    session_id: str = Field(..., description="Unique session ID (UUID) for the cart")
+    caller_number: str = Field(..., description="Caller's actual phone number")
     item_name: str = Field(..., description="Name of the menu item to remove")
     variation: Optional[str] = Field(None, description="Item variation")
+

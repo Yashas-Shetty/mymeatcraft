@@ -99,7 +99,8 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/add_to_cart",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Extract the caller phone number from the call metadata or system context and use it here.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Unique session UUID for this call — same value used throughout the entire conversation. Generate once at the very start of the call (e.g. uuid4) and reuse for every tool call.", "location": "body", "required": True},
+                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number extracted from call metadata (e.g. +919876543210). NEVER use a name or placeholder here.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu including any typos e.g. Mnutton Bone, Muttom Leg, Regular Chcicken, Fish Surmai Boneleess, FISH SINGHARA BONELESS.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Item variation e.g. 250 Grms, 500 Grms, 750 Grms, 1 Kg, Pcs. Omit only if item has no variation.", "location": "body", "required": False},
                 {"name": "quantity", "type": "integer", "description": "Number of units. Default is 1.", "location": "body", "required": False}
@@ -111,7 +112,8 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/remove_from_cart",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Extract the caller phone number from the call metadata or system context. Must match value used in add_to_cart.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Same session UUID used in add_to_cart.", "location": "body", "required": True},
+                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number. Same value as used in add_to_cart.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove including any DB typos.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Variation of item to remove if applicable.", "location": "body", "required": False}
             ]
@@ -122,7 +124,8 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/calculate_total",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Extract the caller phone number from the call metadata or system context. Must match value used in add_to_cart.", "location": "body", "required": True}
+                {"name": "session_id", "type": "string", "description": "Same session UUID used in add_to_cart.", "location": "body", "required": True},
+                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number.", "location": "body", "required": True}
             ]
         },
         {
@@ -131,8 +134,9 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/place_order",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Extract the caller phone number from the call metadata or system context. Must match value used in add_to_cart.", "location": "body", "required": True},
-                {"name": "customer_phone", "type": "string", "description": "Extract the caller phone number from the call metadata or system context.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "Same session UUID used in add_to_cart.", "location": "body", "required": True},
+                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number (e.g. +919876543210). NEVER use a name or the word 'phone_number'.", "location": "body", "required": True},
+                {"name": "customer_phone", "type": "string", "description": "Same as caller_number.", "location": "body", "required": True},
                 {"name": "customer_name", "type": "string", "description": "Customer name collected at start of call in Step 1.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly DELIVERY or PICKUP.", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Only when order_type is DELIVERY.", "location": "body", "required": False},
@@ -140,6 +144,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             ]
         }
     ]
+
 
 
 async def build_rightside_payload() -> Dict[str, Any]:
