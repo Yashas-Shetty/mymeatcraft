@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.pydantic_models import PaymentStatus, KitchenStatus, PosStatus
 from app.services.razorpay_service import verify_webhook_signature
 from app.services.petpooja_service import send_to_petpooja
+from app.services.twilio_service import notify_order_success, NOTIFY_NUMBER
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Payments"])
@@ -113,6 +114,14 @@ async def payment_webhook(
         }}
     )
     logger.info(f"Order {order_id} payment confirmed. Razorpay ID: {razorpay_payment_id}")
+
+    # ── Notify User ──
+    try:
+        # Note: Hardcoded to NOTIFY_NUMBER for testing instead of order.get("customer_phone")
+        notify_order_success(NOTIFY_NUMBER)
+        logger.info(f"Sent WhatsApp success notification for order {order_id} to test number")
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp notification for order {order_id}: {e}")
 
     # ── Trigger POS push ──
     final_pos_status = PosStatus.NOT_SENT.value

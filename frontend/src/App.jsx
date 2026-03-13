@@ -3,19 +3,7 @@ import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2,
 import Login from './Login';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const STATUS_KEY = 'mc_order_statuses';
 
-// ── localStorage helpers so poll can't overwrite local status changes ──
-const loadOverrides = () => {
-  try { return JSON.parse(localStorage.getItem(STATUS_KEY) || '{}'); } catch { return {}; }
-};
-const saveOverrides = (obj) => localStorage.setItem(STATUS_KEY, JSON.stringify(obj));
-const mergeOverrides = (serverOrders) => {
-  const overrides = loadOverrides();
-  return serverOrders.map(o =>
-    overrides[o.order_id] != null ? { ...o, status: overrides[o.order_id] } : o
-  );
-};
 
 const TABS = [
   { key: 'pending', label: 'Pending', color: 'orange' },
@@ -78,7 +66,7 @@ export default function App() {
         }
       });
       if (res.status === 401) { handleLogout(); return; }
-      if (res.ok) setOrders(mergeOverrides(await res.json()));
+      if (res.ok) setOrders(await res.json());
     } catch (e) { console.error('Fetch error:', e); }
   }, [token]);
 
@@ -89,9 +77,7 @@ export default function App() {
   }, [fetchOrders]);
 
   const updateStatus = async (orderId, newStatus) => {
-    const overrides = loadOverrides();
-    overrides[orderId] = newStatus;
-    saveOverrides(overrides);
+
 
     setLoading(l => ({ ...l, [orderId]: true }));
     setOrders(prev => prev.map(o => o.order_id === orderId ? { ...o, status: newStatus } : o));
@@ -113,9 +99,7 @@ export default function App() {
 
   const processOrder = async (orderId) => {
     // Moves to awaiting_payment and generates razorpay link natively backend
-    const overrides = loadOverrides();
-    overrides[orderId] = 'awaiting_payment';
-    saveOverrides(overrides);
+
 
     setLoading(l => ({ ...l, [orderId]: true }));
     setOrders(prev => prev.map(o => o.order_id === orderId ? { ...o, status: 'awaiting_payment' } : o));
@@ -165,9 +149,7 @@ export default function App() {
   };
 
   const clearOrder = async (orderId) => {
-    const overrides = loadOverrides();
-    delete overrides[orderId];
-    saveOverrides(overrides);
+
 
     setLoading(l => ({ ...l, [orderId]: true }));
     setOrders(prev => prev.filter(o => o.order_id !== orderId));

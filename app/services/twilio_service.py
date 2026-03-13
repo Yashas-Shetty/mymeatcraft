@@ -9,7 +9,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 # Fixed recipient number for Meatcraft notifications
-NOTIFY_NUMBER = "+919071584924"
+NOTIFY_NUMBER = "+916361949135"
 
 
 def send_whatsapp_message(message: str, to: str = NOTIFY_NUMBER) -> bool:
@@ -18,7 +18,7 @@ def send_whatsapp_message(message: str, to: str = NOTIFY_NUMBER) -> bool:
 
     Args:
         message: The text message to send.
-        to: Recipient WhatsApp number (defaults to shop owner: +919071584924).
+        to: Recipient WhatsApp number (defaults to shop owner: +916361949135).
 
     Returns:
         True if sent successfully, False otherwise.
@@ -71,7 +71,7 @@ def notify_order_placed(customer_phone: str) -> bool:
     """
     Notify user that order is placed and waiting for butcher.
     """
-    message = "order placed waiting for the butcher to process your req."
+    message = "Your Meatcraft order has been placed! We are waiting for the butcher to process your request."
     return send_whatsapp_message(message, to=NOTIFY_NUMBER)
 
 
@@ -79,5 +79,12 @@ def notify_payment_link(customer_phone: str, payment_link: str) -> bool:
     """
     Notify user to confirm order by payment with the link.
     """
-    message = f"confirm order by payment. Link: {payment_link}"
+    message = f"Please confirm your Meatcraft order by making a payment. Link: {payment_link}"
+    return send_whatsapp_message(message, to=NOTIFY_NUMBER)
+
+def notify_order_success(customer_phone: str) -> bool:
+    """
+    Notify user that payment was successful and order prep has started.
+    """
+    message = "Payment successful! Your Meatcraft order will start preparing soon."
     return send_whatsapp_message(message, to=NOTIFY_NUMBER)

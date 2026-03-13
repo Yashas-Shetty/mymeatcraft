@@ -17,7 +17,7 @@ from app.config import get_settings
 from app.database import connect_to_mongo, close_mongo_connection
 
 # Import routers
-from app.routers import auth, cart, order, payment, pos, rightside
+from app.routers import auth, cart, order, payment, pos, rightside, webhook
 
 # ── Settings ──
 settings = get_settings()
@@ -85,6 +85,7 @@ app.include_router(order.router, prefix="/api", tags=["Orders"])
 app.include_router(payment.router, prefix="/api", tags=["Payments"])
 app.include_router(pos.router, prefix="/api", tags=["POS"])
 app.include_router(rightside.router, prefix="/api", tags=["Rightside"])
+app.include_router(webhook.router, prefix="/webhook", tags=["Webhooks"])
 
 
 # ── Health Check ──
