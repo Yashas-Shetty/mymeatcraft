@@ -9,7 +9,8 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 # Fixed test number per user request
-NOTIFY_NUMBER = "917899069448"
+# NOTIFY_NUMBER = "917899069448"
+NOTIFY_NUMBER = "916361949135"
 
 # Note: Replaced hardcoded values with dynamic env variables via get_settings()
 def send_order_confirmation(customer_phone: str, order_id: str) -> bool:

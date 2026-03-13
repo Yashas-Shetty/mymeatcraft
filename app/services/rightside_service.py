@@ -95,13 +95,26 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
     return [
         {
             "name": "add_to_cart",
-            "description": "Add an item to the shopping cart. Call IMMEDIATELY when customer confirms an item. One call per item.",
+            "description": (
+                "Add a confirmed item to the shopping cart. "
+                "CRITICAL — ANTI-CONFIRMATION-BIAS RULE: "
+                "You MUST NOT call this tool unless ALL THREE of the following slots have been "
+                "EXPLICITLY confirmed by the customer in the same conversation turn: "
+                "(1) item_name — the exact menu item including cut type (e.g. 'Chicken Curry Cut', NOT just 'Chicken'), "
+                "(2) variation — the exact size/weight (e.g. '500 Grms', '1 Kg'), "
+                "(3) quantity — how many units. "
+                "If ANY slot is assumed, inferred, or unconfirmed, do NOT call this tool. "
+                "Instead, ask a NEUTRAL clarification question (NOT a leading yes/no). "
+                "The customer confirmation is only valid if they saw the FULL structured summary "
+                "(item + variation + price) in the same bot turn before saying yes. "
+                "One call per item."
+            ),
             "method": "POST",
             "url": f"{base}/api/add_to_cart",
             "parameters": [
                 {"name": "session_id", "type": "string", "description": "A random 6-digit number (e.g. 582910) that you MUST generate internally at the start of the call. Use this EXACT same number for EVERY tool call to track the cart.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from call metadata (e.g. +919876543210). Pass if available from metadata, otherwise omit.", "location": "body", "required": False},
-                {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu including any typos e.g. Mnutton Bone, Muttom Leg, Regular Chcicken, Fish Surmai Boneleess, FISH SINGHARA BONELESS.", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "Exact name of the menu item including the cut type as listed in the menu (e.g. 'Chicken Curry Cut', 'Chicken Boneless Breast', NOT just 'Chicken'). Never call with a partial name or category.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Item variation e.g. 250 Grms, 500 Grms, 750 Grms, 1 Kg, Pcs. Omit only if item has no variation.", "location": "body", "required": False},
                 {"name": "quantity", "type": "integer", "description": "Number of units. Default is 1.", "location": "body", "required": False}
             ]
