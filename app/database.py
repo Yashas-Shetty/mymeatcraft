@@ -1,44 +1,34 @@
 """
-Database engine, session factory, and base model.
-Uses SQLAlchemy with PostgreSQL.
+MongoDB client initialization using Motor.
 """
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+import logging
+from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Create SQLAlchemy engine
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+class Database:
+    client: AsyncIOMotorClient = None
+    db = None
 
-engine_kwargs = {"pool_pre_ping": True}
-if is_sqlite:
-    engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-    engine_kwargs.update({
-        "pool_size": 10,
-        "max_overflow": 20,
-    })
+db_instance = Database()
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    **engine_kwargs
-)
+async def connect_to_mongo():
+    """Connect to MongoDB."""
+    logger.info("Connecting to MongoDB...")
+    db_instance.client = AsyncIOMotorClient(settings.MONGODB_URL)
+    db_instance.db = db_instance.client[settings.MONGODB_DB_NAME]
+    logger.info("Connected to MongoDB -> Database: %s", settings.MONGODB_DB_NAME)
 
-# Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Declarative base for models
-Base = declarative_base()
-
+async def close_mongo_connection():
+    """Close MongoDB connection."""
+    if db_instance.client:
+        db_instance.client.close()
+        logger.info("MongoDB connection closed.")
 
 def get_db():
     """
-    FastAPI dependency that provides a database session.
-    Ensures the session is closed after the request.
+    FastAPI dependency that provides the MongoDB database instance.
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    return db_instance.db

@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     BASE_URL: str = "https://nonsciatic-fulsomely-rodney.ngrok-free.dev"
 
     # Database
-    DATABASE_URL: str = "sqlite:///./meatcraft.db"
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "meatcraft"
+
+    # JWT Config
+    SECRET_KEY: str = "your_super_secret_jwt_key_here"  # Override in .env
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
 
     # Razorpay
     RAZORPAY_KEY_ID: str = ""

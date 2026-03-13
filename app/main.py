@@ -14,14 +14,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import engine, Base
-
-# Import models so Base.metadata knows about them
-from app.models.order import Order, OrderItem  # noqa: F401
-from app.models.cart import Cart  # noqa: F401
+from app.database import connect_to_mongo, close_mongo_connection
 
 # Import routers
-from app.routers import cart, order, payment, pos, rightside
+from app.routers import auth, cart, order, payment, pos, rightside
 
 # ── Settings ──
 settings = get_settings()
@@ -62,15 +58,13 @@ app.add_middleware(
 # ── Startup Event ──
 @app.on_event("startup")
 async def on_startup():
-    """Create database tables on startup."""
+    """Initialize MongoDB connection on startup."""
     logger.info("Starting Meatcraft backend...")
     logger.info(f"App: {settings.APP_NAME} v{settings.APP_VERSION}")
 
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created/verified")
-
-    logger.info("Meatcraft backend started successfully ✓")
+    # Connect MongoDB
+    await connect_to_mongo()
+    logger.info("MongoDB connected successfully ✓")
 
 
 # ── Shutdown Event ──
@@ -78,9 +72,11 @@ async def on_startup():
 async def on_shutdown():
     """Cleanup on shutdown."""
     logger.info("Shutting down Meatcraft backend...")
+    await close_mongo_connection()
 
 
 # ── Register Routers ──
+app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(cart.router, prefix="/api", tags=["Cart"])
 app.include_router(order.router, prefix="/api", tags=["Orders"])
 app.include_router(payment.router, prefix="/api", tags=["Payments"])

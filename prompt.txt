@@ -138,7 +138,7 @@ For masale items: Tell fixed price directly.
 
 **Step 5 — Add each item immediately after confirmation:**
 Call `add_to_cart` right away. Do not batch or wait.
-- `session_id`: A unique UUID generated ONCE at the very start of this call. Reuse the SAME UUID for every tool call in this conversation. Do NOT use the phone number here.
+- `session_id`: The caller's phone number from call metadata (e.g. +919876543210), no spaces. Use the EXACT same number for EVERY tool call in this conversation.
 - `caller_number`: Pass the caller's phone number from call metadata if it is available. If not available in metadata, simply omit this field — do NOT ask the customer for their phone number.
 - `item_name`: exact name from MENU — never translate or paraphrase
 - `variation`: exact variation from menu (e.g. "500 Grms", "1 Kg", "Pcs") — omit for Masale items

@@ -6,11 +6,11 @@ import json
 import logging
 
 from fastapi import APIRouter, Request, HTTPException
-from sqlalchemy.orm import Session
 from fastapi import Depends
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database import get_db
-from app.models.order import Order, PaymentStatus, PosStatus
+from app.models.pydantic_models import PaymentStatus, KitchenStatus, PosStatus
 from app.services.razorpay_service import verify_webhook_signature
 from app.services.petpooja_service import send_to_petpooja
 
@@ -21,7 +21,7 @@ router = APIRouter(tags=["Payments"])
 @router.post("/payment_webhook")
 async def payment_webhook(
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Razorpay webhook endpoint.
@@ -89,13 +89,13 @@ async def payment_webhook(
         raise HTTPException(status_code=400, detail="order_id not found in payment notes")
 
     # ── Find order ──
-    order = db.query(Order).filter(Order.order_id == order_id).first()
+    order = await db["orders"].find_one({"order_id": order_id})
     if order is None:
         logger.error(f"Order {order_id} not found in database")
         raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
 
     # ── Idempotency: skip if already paid ──
-    if order.payment_status == PaymentStatus.PAID:
+    if order.get("payment_status") == PaymentStatus.PAID.value:
         logger.info(f"Order {order_id} already marked as PAID — skipping duplicate webhook")
         return {
             "success": True,
@@ -104,28 +104,48 @@ async def payment_webhook(
         }
 
     # ── Update payment status ──
-    order.payment_status = PaymentStatus.PAID
-    order.razorpay_payment_id = razorpay_payment_id
-    db.commit()
+    await db["orders"].update_one(
+        {"order_id": order_id},
+        {"$set": {"payment_status": PaymentStatus.PAID.value, "razorpay_payment_id": razorpay_payment_id}}
+    )
     logger.info(f"Order {order_id} payment confirmed. Razorpay ID: {razorpay_payment_id}")
 
     # ── Trigger POS push ──
+    final_pos_status = PosStatus.NOT_SENT.value
     try:
-        success = await send_to_petpooja(order, order.items)
-        order.pos_status = PosStatus.SENT if success else PosStatus.FAILED
+        class DummyOrderObj: pass
+        dummy_order = DummyOrderObj()
+        for k, v in order.items():
+            setattr(dummy_order, k, v)
+        dummy_order.payment_status = PaymentStatus.PAID
+        dummy_order.razorpay_payment_id = razorpay_payment_id
+        
+        class DummyItemObj: pass
+        dummy_items = []
+        for i in order.get("items", []):
+            d_i = DummyItemObj()
+            for k, v in i.items():
+                setattr(d_i, k, v)
+            dummy_items.append(d_i)
+
+        success = await send_to_petpooja(dummy_order, dummy_items)
+        final_pos_status = PosStatus.SENT.value if success else PosStatus.FAILED.value
         if success:
             logger.info(f"Order {order_id} pushed to POS successfully")
         else:
             logger.error(f"POS push failed for order {order_id}")
     except Exception as e:
-        order.pos_status = PosStatus.FAILED
+        final_pos_status = PosStatus.FAILED.value
         logger.error(f"POS push exception for order {order_id}: {e}")
 
-    db.commit()
+    await db["orders"].update_one(
+        {"order_id": order_id},
+        {"$set": {"pos_status": final_pos_status}}
+    )
 
     return {
         "success": True,
         "message": f"Payment confirmed for order {order_id}",
         "order_id": order_id,
-        "pos_status": order.pos_status.value,
+        "pos_status": final_pos_status,
     }

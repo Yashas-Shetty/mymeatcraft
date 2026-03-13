@@ -2,14 +2,16 @@
 Order router — handles order placement from cart.
 """
 import logging
+from typing import List
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel
 
 from app.database import get_db
-from app.models.cart import Cart
-from app.models.order import Order, OrderItem, OrderType, PaymentStatus, PosStatus, KitchenStatus
-from app.schemas.order_schema import PlaceOrderRequest, PlaceOrderResponse
+from app.models.pydantic_models import OrderType, PaymentStatus, PosStatus, KitchenStatus, MongoOrder, MongoOrderItem
+from app.schemas.order_schema import PlaceOrderRequest, PlaceOrderResponse, OrderSchema
 from app.schemas.cart_schema import CartItemSchema
 from app.utils.id_generator import generate_order_id
 from app.services.razorpay_service import create_payment_link
@@ -20,22 +22,19 @@ from app.routers.cart import _resolve_session
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Orders"])
 
-
 @router.post("/place_order", response_model=PlaceOrderResponse)
 async def place_order(
     request: PlaceOrderRequest,
     raw_request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Place an order from the current cart.
-    Real caller phone is extracted from X-Caller-Number header (injected by Rock8/SIP).
+    Instantly confirms the order (PENDING). Payment link is generated when Processed.
     """
-    # ── Use caller_number if provided, else customer_phone, else empty ──
     customer_phone = request.caller_number or request.customer_phone or ""
     logger.info(f"[CALLER] place_order phone={customer_phone!r}")
 
-    # ── Resolve session key (same logic as all cart endpoints) ──
     session_key = _resolve_session(raw_request, request.caller_number, request.session_id)
     logger.info(f"[ORDER] place_order session_key={session_key!r}, phone={customer_phone!r}")
 
@@ -45,7 +44,6 @@ async def place_order(
     print(f"📞 CUSTOMER PHONE: {customer_phone}")
     print(f"==============================================\n")
 
-    # ── Validate order type ──
     order_type_upper = request.order_type.upper()
     if order_type_upper not in ("DELIVERY", "PICKUP"):
         return PlaceOrderResponse(
@@ -53,210 +51,214 @@ async def place_order(
             message="Invalid order_type. Must be DELIVERY or PICKUP.",
         )
 
-    # ── Validate address for delivery ──
     if order_type_upper == "DELIVERY" and not request.address:
         return PlaceOrderResponse(
             success=False,
             message="Address is required for DELIVERY orders.",
         )
 
-    # ── Get cart by resolved session key ──
-    cart = db.query(Cart).filter(Cart.session_id == session_key).first()
-    if cart is None or not cart.items:
+    # Get cart
+    cart = await db["carts"].find_one({"session_id": session_key})
+    if cart is None or not cart.get("items"):
         return PlaceOrderResponse(
             success=False,
             message=f"Cart is empty (session: {session_key!r}). Add items before placing an order.",
         )
 
-    cart_items = cart.items
-    total_amount = cart.total_amount
+    cart_items = cart["items"]
+    total_amount = cart.get("total_amount", 0.0)
 
-    # ── Generate unique order ID ──
+    # Generate unique order ID
     order_id = generate_order_id()
-
-    # Ensure uniqueness (very unlikely collision but handle it)
-    while db.query(Order).filter(Order.order_id == order_id).first() is not None:
+    while await db["orders"].find_one({"order_id": order_id}) is not None:
         order_id = generate_order_id()
 
-    # ── Create Order record ──
-    order = Order(
+    # Create OrderItem records
+    mongo_items = []
+    order_item_schemas = []
+    for item in cart_items:
+        mongo_items.append(MongoOrderItem(**item))
+        order_item_schemas.append(CartItemSchema(**item))
+
+    # Create Order record
+    order = MongoOrder(
         order_id=order_id,
-        customer_phone=customer_phone,  # real SIP caller number
+        customer_phone=customer_phone,
         customer_name=request.customer_name,
         address=request.address,
         order_type=OrderType(order_type_upper),
         arrival_time=request.arrival_time,
         total_amount=total_amount,
-        payment_status=PaymentStatus.PAID,  # Instantly confirm the order for testing
+        payment_status=PaymentStatus.PENDING,
         pos_status=PosStatus.NOT_SENT,
+        kitchen_status=KitchenStatus.PENDING,
+        items=mongo_items,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
-    db.add(order)
+    
+    order_dict = order.model_dump()
+    await db["orders"].insert_one(order_dict)
 
-    # ── Create OrderItem records ──
-    order_item_schemas = []
-    for item in cart_items:
-        order_item = OrderItem(
-            order_id=order_id,
-            item_name=item.get("item_name", ""),
-            variation=item.get("variation"),
-            quantity=item.get("quantity", 1),
-            price=item.get("price", 0),
-            final_price=item.get("final_price", 0),
-        )
-        db.add(order_item)
-        order_item_schemas.append(CartItemSchema(**item))
+    # Clear the cart
+    await db["carts"].delete_one({"session_id": session_key})
 
-    # ── Generate Razorpay payment link ──
+    logger.info(f"Order {order_id} created successfully. Total: ₹{total_amount}")
+
+    # Send to PetPooja POS (can be async or sync depending on implementation)
     try:
-        payment_result = create_payment_link(
-            order_id=order_id,
-            amount=total_amount,
-            customer_phone=request.customer_phone,
-            customer_name=request.customer_name,
-        )
-        payment_link_url = payment_result["payment_link_url"]
-        payment_link_id = payment_result["payment_link_id"]
+        class DummyOrderObj: pass
+        dummy_order = DummyOrderObj()
+        for k, v in order_dict.items():
+            setattr(dummy_order, k, v)
+        
+        class DummyItemObj: pass
+        dummy_items = []
+        for i in mongo_items:
+            d_i = DummyItemObj()
+            for k, v in i.model_dump().items():
+                setattr(d_i, k, v)
+            dummy_items.append(d_i)
 
-        # Store payment link ID on order
-        order.razorpay_payment_link_id = payment_link_id
-
-    except ValueError as e:
-        logger.warning(f"Payment link creation failed (Using mock link): {e}")
-        payment_link_url = "http://mock-payment-link/for-testing"
-    except Exception as e:
-        logger.warning(f"Unexpected payment error (Using mock link): {e}")
-        payment_link_url = "http://mock-payment-link/for-testing"
-
-    # ── Clear the cart ──
-    db.delete(cart)
-
-    # ── Log SMS Replacement ──
-    # SMS disabled; Rightside / WhatsApp integration will handle links if needed in future
-    logger.info(f"Payment link for Order {order_id} generated: {payment_link_url}")
-
-    # ── Commit everything ──
-    db.commit()
-    db.refresh(order)
-
-    logger.info(
-        f"Order {order_id} created successfully. "
-        f"Total: ₹{total_amount}, Payment link: {payment_link_url}"
-    )
-
-    # ── Send to PetPooja POS ──
-    try:
-        db_order_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
-        success = await send_to_petpooja(order, db_order_items)
-        order.pos_status = PosStatus.SENT if success else PosStatus.FAILED
-        db.commit()
+        success = await send_to_petpooja(dummy_order, dummy_items)
+        if success:
+            await db["orders"].update_one(
+                {"order_id": order_id},
+                {"$set": {"pos_status": PosStatus.SENT.value}}
+            )
     except Exception as e:
         logger.error(f"PetPooja send failed for {order_id}: {e}")
-        order.pos_status = PosStatus.FAILED
-        db.commit()
+        await db["orders"].update_one({"order_id": order_id}, {"$set": {"pos_status": PosStatus.FAILED.value}})
 
     return PlaceOrderResponse(
         success=True,
-        message=f"Order {order_id} placed! Please complete payment.",
+        message=f"Order {order_id} placed! It will be reviewed by the shop soon.",
         order_id=order_id,
         total_amount=total_amount,
-        payment_link=payment_link_url,
+        payment_link="", # Sent later by shop
         items=order_item_schemas,
     )
 
 
-from typing import List
-from app.schemas.order_schema import OrderSchema
-
 @router.get("/orders", response_model=List[OrderSchema])
-async def get_all_orders(db: Session = Depends(get_db)):
+async def get_all_orders(db: AsyncIOMotorDatabase = Depends(get_db)):
     """
     Fetch all placed orders for the frontend dashboard.
-    Orders are retrieved with their items.
     """
-    # Fetch all orders from database 
-    db_orders = db.query(Order).all()
+    cursor = db["orders"].find()
+    db_orders = await cursor.to_list(length=1000)
     
     response_orders = []
     for order in db_orders:
-        
-        # Determine internal UI status based on payment/pos state
-        # (This can be basic logic, defaults to 'pending')
-        status = "pending"
-        if order.pos_status == PosStatus.SENT:
-            status = "preparing"
-        
-        # Convert items
         order_items = []
-        for item in order.items:
-            order_items.append(CartItemSchema(
-                item_name=item.item_name,
-                variation=item.variation,
-                quantity=item.quantity,
-                price=item.price,
-                final_price=item.final_price
-            ))
+        for item in order.get("items", []):
+            order_items.append(CartItemSchema(**item))
             
-        # Optional: format a simple timestamp string from DB created_at 
-        # (Assuming your order model has generic timestamps, if not fallback to None)
         timestamp_str = "Recently"
-        if hasattr(order, 'created_at') and order.created_at:
-             # Basic time format like '10:15 AM'
-             timestamp_str = order.created_at.strftime("%I:%M %p")
+        if "created_at" in order and order["created_at"]:
+            if isinstance(order["created_at"], datetime):
+                timestamp_str = order["created_at"].strftime("%I:%M %p")
 
         order_data = OrderSchema(
-            order_id=order.order_id,
-            customer_name=order.customer_name or "Unknown",
-            customer_phone=order.customer_phone,
-            address=order.address,
-            order_type=order.order_type.value if hasattr(order.order_type, 'value') else str(order.order_type),
-            payment_status=order.payment_status.value if hasattr(order.payment_status, 'value') else str(order.payment_status),
-            pos_status=order.pos_status.value if hasattr(order.pos_status, 'value') else str(order.pos_status),
-            total_amount=order.total_amount,
-            status=order.kitchen_status.value if hasattr(order.kitchen_status, 'value') else str(order.kitchen_status),
+            order_id=order.get("order_id"),
+            customer_name=order.get("customer_name") or "Unknown",
+            customer_phone=order.get("customer_phone"),
+            address=order.get("address"),
+            order_type=order.get("order_type"),
+            payment_status=order.get("payment_status"),
+            pos_status=order.get("pos_status"),
+            total_amount=order.get("total_amount"),
+            status=order.get("kitchen_status"),
             items=order_items,
             timestamp=timestamp_str,
-            arrival_time=order.arrival_time
+            arrival_time=order.get("arrival_time")
         )
         response_orders.append(order_data)
         
-    # Reverse to show newest first
     response_orders.reverse()
-    
     return response_orders
 
 
 @router.delete("/orders/{order_id}")
-async def clear_order(order_id: str, db: Session = Depends(get_db)):
+async def clear_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
     """
-    Permanently delete an order from the database (e.g. when cleared from frontend).
+    Permanently delete an order from the database.
     """
-    order = db.query(Order).filter(Order.order_id == order_id).first()
-    if not order:
+    result = await db["orders"].delete_one({"order_id": order_id})
+    if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Order not found")
         
-    db.delete(order)
-    db.commit()
     return {"success": True, "message": f"Order {order_id} cleared"}
 
-
-from pydantic import BaseModel
 
 class StatusUpdate(BaseModel):
     status: str
 
 @router.patch("/orders/{order_id}/status")
-async def update_order_status(order_id: str, body: StatusUpdate, db: Session = Depends(get_db)):
+async def update_order_status(order_id: str, body: StatusUpdate, db: AsyncIOMotorDatabase = Depends(get_db)):
     """
-    Update kitchen status of an order (pending → preparing → ready).
+    Update kitchen status of an order.
     """
-    order = db.query(Order).filter(Order.order_id == order_id).first()
+    try:
+        new_status = KitchenStatus(body.status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'.")
+
+    result = await db["orders"].update_one(
+        {"order_id": order_id},
+        {"$set": {"kitchen_status": new_status.value, "updated_at": datetime.utcnow()}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return {"success": True, "order_id": order_id, "status": new_status.value}
+
+
+@router.post("/orders/{order_id}/process")
+async def process_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Process an order: Generate Razorpay link, send SMS (mocked for now), 
+    and update status to 'preparing' or some intermediate state.
+    """
+    order = await db["orders"].find_one({"order_id": order_id})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    try:
-        order.kitchen_status = KitchenStatus(body.status)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'. Must be pending, preparing, or ready.")
+    new_status = KitchenStatus.PREPARING
 
-    db.commit()
-    return {"success": True, "order_id": order_id, "status": order.kitchen_status.value}
+    if order.get("payment_status") == PaymentStatus.PENDING.value:
+        try:
+            payment_result = create_payment_link(
+                order_id=order_id,
+                amount=order.get("total_amount", 0.0),
+                customer_phone=order.get("customer_phone", ""),
+                customer_name=order.get("customer_name", ""),
+            )
+            payment_link_url = payment_result["payment_link_url"]
+            payment_link_id = payment_result["payment_link_id"]
+
+            await db["orders"].update_one(
+                {"order_id": order_id},
+                {
+                    "$set": {
+                        "razorpay_payment_link_id": payment_link_id,
+                        "kitchen_status": new_status.value,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            logger.info(f"Generated payment link for {order_id}: {payment_link_url}")
+            # SMS hook would go here
+        except Exception as e:
+            logger.error(f"Error processing payment link for {order_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate payment link.")
+            
+    else:
+        # Just update status if already paid (unlikely in new flow, but safe fallback)
+        await db["orders"].update_one(
+            {"order_id": order_id},
+            {"$set": {"kitchen_status": new_status.value, "updated_at": datetime.utcnow()}}
+        )
+
+    return {"success": True, "order_id": order_id, "status": new_status.value}

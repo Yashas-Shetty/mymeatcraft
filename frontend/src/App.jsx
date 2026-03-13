@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2, UtensilsCrossed, LogOut, Link as LinkIcon } from 'lucide-react';
+import Login from './Login';
 
-const API = import.meta.env.VITE_API_URL;
-const LOCAL_API = 'http://localhost:8000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const STATUS_KEY = 'mc_order_statuses';
 
 // ── localStorage helpers so poll can't overwrite local status changes ──
@@ -37,18 +37,34 @@ const statusBadge = {
 };
 
 export default function App() {
+  const [token, setToken] = useState(localStorage.getItem('admin_token'));
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [loading, setLoading] = useState({});
 
+  const handleLogin = (newToken) => {
+    localStorage.setItem('admin_token', newToken);
+    setToken(newToken);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    setToken(null);
+  };
+
   const fetchOrders = useCallback(async () => {
+    if (!token) return;
     try {
       const res = await fetch(`${API}/api/orders`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
+        headers: { 
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': `Bearer ${token}`
+        }
       });
+      if (res.status === 401) { handleLogout(); return; }
       if (res.ok) setOrders(mergeOverrides(await res.json()));
     } catch (e) { console.error('Fetch error:', e); }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchOrders();
@@ -57,34 +73,52 @@ export default function App() {
   }, [fetchOrders]);
 
   const updateStatus = async (orderId, newStatus) => {
-    // 1. Persist to localStorage first — poll can't overwrite this
     const overrides = loadOverrides();
     overrides[orderId] = newStatus;
     saveOverrides(overrides);
 
-    // 2. Optimistic UI
     setLoading(l => ({ ...l, [orderId]: true }));
     setOrders(prev => prev.map(o => o.order_id === orderId ? { ...o, status: newStatus } : o));
 
-    // 3. Try to persist to backend (local dev first, then Render)
-    for (const base of [LOCAL_API, API]) {
-      try {
-        const res = await fetch(`${base}/api/orders/${orderId}/status`, {
-          method: 'PATCH',
-          headers: { 
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify({ status: newStatus }),
-        });
-        if (res.ok) break;
-      } catch { /* try next */ }
-    }
+    try {
+      const res = await fetch(`${API}/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.status === 401) handleLogout();
+    } catch { /* ignore */ }
+    setLoading(l => ({ ...l, [orderId]: false }));
+  };
+
+  const processOrder = async (orderId) => {
+    // Moves to preparing and generates razorpay link natively backend
+    const overrides = loadOverrides();
+    overrides[orderId] = 'preparing';
+    saveOverrides(overrides);
+
+    setLoading(l => ({ ...l, [orderId]: true }));
+    setOrders(prev => prev.map(o => o.order_id === orderId ? { ...o, status: 'preparing' } : o));
+
+    try {
+      const res = await fetch(`${API}/api/orders/${orderId}/process`, {
+        method: 'POST',
+        headers: { 
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.status === 401) handleLogout();
+      // On success, backend updates to PREPARING
+    } catch { /* ignore */ }
     setLoading(l => ({ ...l, [orderId]: false }));
   };
 
   const clearOrder = async (orderId) => {
-    // Remove localStorage override so it doesn't ghost
     const overrides = loadOverrides();
     delete overrides[orderId];
     saveOverrides(overrides);
@@ -92,16 +126,23 @@ export default function App() {
     setLoading(l => ({ ...l, [orderId]: true }));
     setOrders(prev => prev.filter(o => o.order_id !== orderId));
 
-    for (const base of [LOCAL_API, API]) {
-      try {
-        const res = await fetch(`${base}/api/orders/${orderId}`, { method: 'DELETE' });
-        if (res.ok) break;
-      } catch { /* try next */ }
-    }
+    try {
+      const res = await fetch(`${API}/api/orders/${orderId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.status === 401) handleLogout();
+    } catch { /* ignore */ }
   };
 
   const countOf = (s) => orders.filter(o => o.status === s).length;
   const visible = orders.filter(o => o.status === activeTab);
+
+  if (!token) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -109,12 +150,12 @@ export default function App() {
       {/* ── Header ── */}
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-1 items-center gap-3">
             <span className="bg-rose-600 text-white p-2 rounded-xl shadow">
               <ChefHat className="w-6 h-6" />
             </span>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-none">Meatcraft Kitchen</h1>
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-none">Meatcraft Dashboard</h1>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1 font-medium">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -125,13 +166,20 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             {TABS.map(t => (
               <div key={t.key} className="flex flex-col items-center bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 min-w-[72px]">
                 <span className={`text-2xl font-extrabold ${tabStyles[t.color].num}`}>{countOf(t.key)}</span>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">{t.label}</span>
               </div>
             ))}
+            
+            {/* Logout Button */}
+            <div className="ml-4 pl-4 border-l border-slate-200">
+               <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Log out">
+                  <LogOut className="w-5 h-5" />
+               </button>
+            </div>
           </div>
         </div>
       </header>
@@ -178,6 +226,7 @@ export default function App() {
                   order={order}
                   loading={!!loading[order.order_id]}
                   onUpdateStatus={updateStatus}
+                  onProcess={processOrder}
                   onClear={clearOrder}
                 />
               ))}
@@ -189,7 +238,7 @@ export default function App() {
   );
 }
 
-function OrderCard({ order, loading, onUpdateStatus, onClear }) {
+function OrderCard({ order, loading, onUpdateStatus, onProcess, onClear }) {
   return (
     <div className={`bg-white rounded-2xl border-2 ${cardBorder[order.status] || 'border-slate-200'} shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow`}>
 
@@ -211,9 +260,12 @@ function OrderCard({ order, loading, onUpdateStatus, onClear }) {
         <span className={`flex items-center gap-1.5 font-bold ${order.order_type === 'DELIVERY' ? 'text-indigo-600' : 'text-orange-600'}`}>
           <ShoppingBag className="w-4 h-4" /> {order.order_type}
         </span>
-        <span className={`font-bold px-2 py-0.5 rounded text-xs ${order.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-          {order.payment_status}
-        </span>
+        <div className="flex items-center gap-2">
+          {order.payment_status === 'PAID' && <span className="text-emerald-600"><CheckCircle2 className="w-4 h-4" /></span>}
+          <span className={`font-bold px-2 py-0.5 rounded text-xs ${order.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+            {order.payment_status}
+          </span>
+        </div>
       </div>
 
       {/* Customer */}
@@ -246,9 +298,9 @@ function OrderCard({ order, loading, onUpdateStatus, onClear }) {
 
       {/* Items */}
       <div className="px-5 py-4 flex-1">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Items ({order.items.length})</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Items ({order.items?.length || 0})</p>
         <ul className="space-y-3">
-          {order.items.map((item, i) => (
+          {order.items?.map((item, i) => (
             <li key={i} className="flex justify-between items-start text-sm">
               <div className="flex gap-3">
                 <span className="font-extrabold text-rose-500 min-w-[1.5rem]">{item.quantity}×</span>
@@ -268,9 +320,9 @@ function OrderCard({ order, loading, onUpdateStatus, onClear }) {
         <span className="text-xl font-extrabold text-slate-900">₹{order.total_amount?.toFixed(2)}</span>
         <div className="flex gap-2">
           {order.status === 'pending' && (
-            <button disabled={loading} onClick={() => onUpdateStatus(order.order_id, 'preparing')}
+            <button disabled={loading} onClick={() => onProcess(order.order_id)}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors active:scale-95 shadow-sm disabled:opacity-60">
-              <Play className="w-3.5 h-3.5 fill-current" /> Start Prep
+              <LinkIcon className="w-3.5 h-3.5 text-white" /> Process Order
             </button>
           )}
           {order.status === 'preparing' && (
@@ -290,3 +342,4 @@ function OrderCard({ order, loading, onUpdateStatus, onClear }) {
     </div>
   );
 }
+

@@ -99,7 +99,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/add_to_cart",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "A randomly generated UUID string (e.g. '550e8400-e29b-41d4-a716-446655440000'). Generate it ONCE when the call starts and reuse the exact same string for every tool call in this conversation. NEVER use a phone number here.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. '+919876543210'). Use the exact caller phone number from call metadata as the session_id for EVERY tool call. This is how the cart is tracked across the entire call.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from call metadata (e.g. +919876543210). Pass if available from metadata, otherwise omit.", "location": "body", "required": False},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item as listed in the menu including any typos e.g. Mnutton Bone, Muttom Leg, Regular Chcicken, Fish Surmai Boneleess, FISH SINGHARA BONELESS.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Item variation e.g. 250 Grms, 500 Grms, 750 Grms, 1 Kg, Pcs. Omit only if item has no variation.", "location": "body", "required": False},
@@ -112,7 +112,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/remove_from_cart",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The same UUID string used in add_to_cart. NEVER use a phone number here.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. '+919876543210'). Must be the exact same caller phone number used in add_to_cart.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove including any DB typos.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Variation of item to remove if applicable.", "location": "body", "required": False}
             ]
@@ -123,7 +123,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/calculate_total",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The same UUID string used in add_to_cart. NEVER use a phone number here.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. '+919876543210'). Must be the exact same caller phone number used in add_to_cart.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number. Pass if available.", "location": "body", "required": False}
             ]
         },
@@ -133,7 +133,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "method": "POST",
             "url": f"{base}/api/place_order",
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The same UUID string used in add_to_cart. NEVER use a phone number here.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The caller's phone number (e.g. '+919876543210'). Must be the exact same caller phone number used in add_to_cart.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from metadata. Pass if available, otherwise omit.", "location": "body", "required": False},
                 {"name": "customer_phone", "type": "string", "description": "Same as caller_number. Optional.", "location": "body", "required": False},
                 {"name": "customer_name", "type": "string", "description": "Customer name collected at start of call in Step 1.", "location": "body", "required": True},
@@ -222,10 +222,14 @@ async def configure_inbound() -> Dict[str, Any]:
             if data.get("dispatch_rule_id"):
                 _update_env_value("DISPATCH_RULE_ID", data["dispatch_rule_id"])
 
-            return data
     except httpx.HTTPStatusError as e:
         logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
         raise ValueError(f"Rock8 API Rejected Payload: {e.response.text}")
+    except Exception as e:
+        logger.error(f"Failed to configure Rock8: {e}")
+        raise
+
+    return data
 
 async def update_inbound() -> Dict[str, Any]:
     """PUT updated configuration to Rock8 Voice API."""
@@ -271,13 +275,14 @@ async def update_inbound() -> Dict[str, Any]:
                 _update_env_value("DISPATCH_RULE_ID", new_rule_id)
                 logger.info(f"Saved new dispatch_rule_id to .env: {new_rule_id}")
 
-            return data
     except httpx.HTTPStatusError as e:
         logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
         raise ValueError(f"Rock8 API Rejected Update Payload: {e.response.text}")
     except Exception as e:
         logger.error(f"Failed to update Rock8: {e}")
         raise
+
+    return data
 
 async def delete_inbound() -> Dict[str, Any]:
     """DELETE configuration from Rock8 Voice API."""
@@ -301,11 +306,12 @@ async def delete_inbound() -> Dict[str, Any]:
             resp.raise_for_status()
             data = resp.json()
             logger.info(f"Rock8 deleted! Response: {data}")
-            return data
     except httpx.HTTPStatusError as e:
         logger.error(f"Rock8 HTTP error {e.response.status_code}: {e.response.text}")
         raise ValueError(f"Rock8 API Rejected Delete Request: {e.response.text}")
     except Exception as e:
         logger.error(f"Failed to delete Rock8: {e}")
         raise
+
+    return data
 

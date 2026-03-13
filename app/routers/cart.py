@@ -12,15 +12,12 @@ SESSION DESIGN:
 """
 import re
 import logging
-import uuid as _uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
-from sqlalchemy.orm.attributes import flag_modified
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database import get_db
-from app.models.cart import Cart
 from app.schemas.cart_schema import (
     AddToCartRequest,
     CalculateTotalRequest,
@@ -30,6 +27,7 @@ from app.schemas.cart_schema import (
     RemoveFromCartRequest,
 )
 from app.services.menu_service import validate_item
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Cart"])
@@ -71,14 +69,18 @@ def _resolve_session(raw_request: Request, caller_number: Optional[str], session
     return session_id.strip()
 
 
-def _get_or_create_cart(db: Session, session_key: str) -> Cart:
+async def _get_or_create_cart(db: AsyncIOMotorDatabase, session_key: str) -> dict:
     """Get existing cart or create new one for the session."""
-    cart = db.query(Cart).filter(Cart.session_id == session_key).first()
+    cart = await db["carts"].find_one({"session_id": session_key})
     if cart is None:
-        cart = Cart(session_id=session_key, items=[], total_amount=0.0)
-        db.add(cart)
-        db.commit()
-        db.refresh(cart)
+        cart = {
+            "session_id": session_key,
+            "items": [],
+            "total_amount": 0.0,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db["carts"].insert_one(cart)
     return cart
 
 
@@ -91,7 +93,7 @@ def _recalculate_total(items: list) -> float:
 async def add_to_cart(
     request: AddToCartRequest,
     raw_request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """
     Add an item to the cart.
@@ -116,8 +118,8 @@ async def add_to_cart(
         logger.error(f"Menu service error: {e}")
         raise HTTPException(status_code=503, detail="Menu service unavailable")
 
-    cart = _get_or_create_cart(db, session_key)
-    current_items = list(cart.items) if cart.items else []
+    cart = await _get_or_create_cart(db, session_key)
+    current_items = list(cart.get("items", []))
 
     # Check for duplicate item+variation — increment quantity if found
     found = False
@@ -143,17 +145,20 @@ async def add_to_cart(
         current_items.append(new_item)
         logger.info(f"Added new item '{item_info['item_name']}' to cart")
 
-    cart.items = current_items
-    cart.total_amount = _recalculate_total(current_items)
-    flag_modified(cart, "items")
-    db.commit()
-    db.refresh(cart)
+    cart["items"] = current_items
+    cart["total_amount"] = _recalculate_total(current_items)
+    cart["updated_at"] = datetime.utcnow()
+    
+    await db["carts"].update_one(
+        {"session_id": session_key},
+        {"$set": {"items": cart["items"], "total_amount": cart["total_amount"], "updated_at": cart["updated_at"]}}
+    )
 
     return CartResponse(
         success=True,
         message=f"'{item_info['item_name']}' added to cart successfully",
         cart_items=[CartItemSchema(**item) for item in current_items],
-        cart_total=cart.total_amount,
+        cart_total=cart["total_amount"],
     )
 
 
@@ -161,7 +166,7 @@ async def add_to_cart(
 async def calculate_total(
     request: CalculateTotalRequest,
     raw_request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Return full cart contents and total amount."""
     session_key = _resolve_session(raw_request, request.caller_number, request.session_id)
@@ -173,9 +178,9 @@ async def calculate_total(
 
     logger.info(f"[CART] calculate_total: key={session_key}")
 
-    cart = db.query(Cart).filter(Cart.session_id == session_key).first()
+    cart = await db["carts"].find_one({"session_id": session_key})
 
-    if cart is None or not cart.items:
+    if cart is None or not cart.get("items"):
         return CalculateTotalResponse(
             success=True,
             message="Cart is empty",
@@ -187,9 +192,9 @@ async def calculate_total(
     return CalculateTotalResponse(
         success=True,
         message="Cart total calculated",
-        cart_items=[CartItemSchema(**item) for item in cart.items],
-        total_amount=cart.total_amount,
-        item_count=sum(item.get("quantity", 0) for item in cart.items),
+        cart_items=[CartItemSchema(**item) for item in cart["items"]],
+        total_amount=cart.get("total_amount", 0.0),
+        item_count=sum(item.get("quantity", 0) for item in cart["items"]),
     )
 
 
@@ -197,7 +202,7 @@ async def calculate_total(
 async def remove_from_cart(
     request: RemoveFromCartRequest,
     raw_request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Remove an item from the cart by name and optional variation."""
     session_key = _resolve_session(raw_request, request.caller_number, request.session_id)
@@ -210,9 +215,9 @@ async def remove_from_cart(
 
     logger.info(f"[CART] remove_from_cart: key={session_key}, item={request.item_name}")
 
-    cart = db.query(Cart).filter(Cart.session_id == session_key).first()
+    cart = await db["carts"].find_one({"session_id": session_key})
 
-    if cart is None or not cart.items:
+    if cart is None or not cart.get("items"):
         return CartResponse(
             success=False,
             message="Cart is empty, nothing to remove",
@@ -220,7 +225,7 @@ async def remove_from_cart(
             cart_total=0.0,
         )
 
-    current_items = list(cart.items)
+    current_items = list(cart["items"])
     original_len = len(current_items)
 
     current_items = [
@@ -236,18 +241,21 @@ async def remove_from_cart(
             success=False,
             message=f"Item '{request.item_name}' not found in cart",
             cart_items=[CartItemSchema(**i) for i in current_items],
-            cart_total=cart.total_amount,
+            cart_total=cart.get("total_amount", 0.0),
         )
 
-    cart.items = current_items
-    cart.total_amount = _recalculate_total(current_items)
-    flag_modified(cart, "items")
-    db.commit()
-    db.refresh(cart)
+    cart["items"] = current_items
+    cart["total_amount"] = _recalculate_total(current_items)
+    cart["updated_at"] = datetime.utcnow()
+    
+    await db["carts"].update_one(
+        {"session_id": session_key},
+        {"$set": {"items": cart["items"], "total_amount": cart["total_amount"], "updated_at": cart["updated_at"]}}
+    )
 
     return CartResponse(
         success=True,
         message=f"'{request.item_name}' removed from cart",
         cart_items=[CartItemSchema(**i) for i in current_items],
-        cart_total=cart.total_amount,
+        cart_total=cart["total_amount"],
     )
