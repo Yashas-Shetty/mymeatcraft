@@ -31,6 +31,9 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ],
 )
+# Silence verbose third-party loggers
+logging.getLogger("pymongo").setLevel(logging.WARNING)
+
 logger = logging.getLogger("meatcraft")
 
 # ── FastAPI App ──

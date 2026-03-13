@@ -16,6 +16,7 @@ from app.schemas.cart_schema import CartItemSchema
 from app.utils.id_generator import generate_order_id
 from app.services.razorpay_service import create_payment_link
 from app.services.petpooja_service import send_to_petpooja
+from app.services.twilio_service import notify_order_placed, notify_payment_link
 from app.routers.cart import _resolve_session
 
 
@@ -104,6 +105,9 @@ async def place_order(
     await db["carts"].delete_one({"session_id": session_key})
 
     logger.info(f"Order {order_id} created successfully. Total: ₹{total_amount}")
+
+    # Send WhatsApp notification
+    notify_order_placed(customer_phone)
 
     # Send to PetPooja POS (can be async or sync depending on implementation)
     try:
@@ -243,13 +247,13 @@ async def process_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db
                 {
                     "$set": {
                         "razorpay_payment_link_id": payment_link_id,
+                        "payment_link_url": payment_link_url,
                         "kitchen_status": new_status.value,
                         "updated_at": datetime.utcnow()
                     }
                 }
             )
             logger.info(f"Generated payment link for {order_id}: {payment_link_url}")
-            # SMS hook would go here
         except Exception as e:
             logger.error(f"Error processing payment link for {order_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to generate payment link.")
@@ -261,4 +265,33 @@ async def process_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db
             {"$set": {"kitchen_status": new_status.value, "updated_at": datetime.utcnow()}}
         )
 
-    return {"success": True, "order_id": order_id, "status": new_status.value}
+    updated_order = await db["orders"].find_one({"order_id": order_id})
+    payment_link_url = updated_order.get("payment_link_url", "") if updated_order else ""
+
+    return {
+        "success": True, 
+        "order_id": order_id, 
+        "status": new_status.value, 
+        "payment_link_url": payment_link_url
+    }
+
+@router.post("/orders/{order_id}/send_payment_link")
+async def send_payment_link(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Fetch the order's payment link and send it via Twilio WhatsApp.
+    """
+    order = await db["orders"].find_one({"order_id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    payment_link_url = order.get("payment_link_url")
+    if not payment_link_url:
+        raise HTTPException(status_code=400, detail="No payment link generated for this order yet.")
+
+    customer_phone = order.get("customer_phone", "")
+    success = notify_payment_link(customer_phone, payment_link_url)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send payment link via WhatsApp.")
+
+    return {"success": True, "message": "Payment link sent successfully"}

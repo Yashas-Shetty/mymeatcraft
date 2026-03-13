@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2, UtensilsCrossed, LogOut, Link as LinkIcon } from 'lucide-react';
+import { Clock, CheckCircle2, ShoppingBag, MapPin, Phone, ChefHat, Play, Trash2, UtensilsCrossed, LogOut, Link as LinkIcon, X, Send } from 'lucide-react';
 import Login from './Login';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -41,6 +41,10 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
   const [loading, setLoading] = useState({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [paymentLink, setPaymentLink] = useState('');
+  const [processingOrderId, setProcessingOrderId] = useState(null);
+  const [sendingLink, setSendingLink] = useState(false);
 
   const handleLogin = (newToken) => {
     localStorage.setItem('admin_token', newToken);
@@ -112,10 +116,38 @@ export default function App() {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (res.status === 401) handleLogout();
+      if (res.status === 401) { handleLogout(); return; }
+      
+      const data = await res.json();
+      if (data.payment_link_url) {
+        setPaymentLink(data.payment_link_url);
+        setProcessingOrderId(orderId);
+        setIsModalOpen(true);
+      }
       // On success, backend updates to PREPARING
     } catch { /* ignore */ }
     setLoading(l => ({ ...l, [orderId]: false }));
+  };
+
+  const sendPaymentLink = async () => {
+    if (!processingOrderId) return;
+    setSendingLink(true);
+    try {
+      const res = await fetch(`${API}/api/orders/${processingOrderId}/send_payment_link`, {
+        method: 'POST',
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.status === 401) handleLogout();
+      if (res.ok) {
+        setIsModalOpen(false);
+        setPaymentLink('');
+        setProcessingOrderId(null);
+      }
+    } catch (e) { console.error('Error sending link:', e); }
+    setSendingLink(false);
   };
 
   const clearOrder = async (orderId) => {

@@ -65,3 +65,19 @@ def notify_new_order(order_id: str, customer_name: str, customer_phone: str,
         f"💰 Total: ₹{total:.0f}"
     )
     return send_whatsapp_message(message)
+
+
+def notify_order_placed(customer_phone: str) -> bool:
+    """
+    Notify user that order is placed and waiting for butcher.
+    """
+    message = "order placed waiting for the butcher to process your req."
+    return send_whatsapp_message(message, to=NOTIFY_NUMBER)
+
+
+def notify_payment_link(customer_phone: str, payment_link: str) -> bool:
+    """
+    Notify user to confirm order by payment with the link.
+    """
+    message = f"confirm order by payment. Link: {payment_link}"
+    return send_whatsapp_message(message, to=NOTIFY_NUMBER)

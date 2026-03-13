@@ -40,33 +40,34 @@ def _normalize_phone(raw: str) -> str:
 
 def _resolve_session(raw_request: Request, caller_number: Optional[str], session_id: str) -> str:
     """
-    Resolve the cart session key from available sources, in priority order:
-      1. X-Caller-Number SIP header (most reliable — injected by Rock8)
-      2. caller_number body param (AI passes from call metadata)
-      3. session_id body param (fallback — AI-generated UUID or whatever)
-
-    If source 1 or 2 provide a numeric phone, we use them directly (digits normalized).
-    Using the phone number as the cart key means the same caller maps to the same
-    cart across ALL tool calls in a session — no AI memory required.
+    Resolve the cart session key.
+    We now prefer the session_id explicitly passed by the AI (which should map to Rock8's {call_id}).
+    If not present or looks like a placeholder, fallback to caller_number or X-Caller-Number.
     """
-    # Priority 1: Rock8 SIP header
+    session_id = session_id.strip()
+    # Priority 1: session_id from AI (populated via {call_id} from prompt)
+    if session_id and session_id != "{call_id}" and session_id != "+919876543210":
+        logger.info(f"[SESSION] Resolved from session_id param: {session_id}")
+        return session_id
+
+    # Priority 2: Rock8 SIP header
     header_phone = raw_request.headers.get("x-caller-number", "").strip()
     if header_phone and not header_phone.startswith("{"):
         digits = _normalize_phone(header_phone)
         if digits and digits.lstrip("+").isdigit():
-            logger.info(f"[SESSION] Resolved from SIP header: {digits}")
+            logger.info(f"[SESSION] Resolved from SIP header (fallback): {digits}")
             return digits
 
-    # Priority 2: caller_number body param
+    # Priority 3: caller_number body param
     if caller_number:
         digits = _normalize_phone(caller_number)
         if digits and digits.lstrip("+").isdigit() and len(digits) >= 7:
-            logger.info(f"[SESSION] Resolved from caller_number param: {digits}")
+            logger.info(f"[SESSION] Resolved from caller_number param (fallback): {digits}")
             return digits
 
-    # Priority 3: session_id fallback (use as-is — could be UUID or anything)
+    # Final fallback
     logger.info(f"[SESSION] Using session_id as fallback: {session_id}")
-    return session_id.strip()
+    return session_id
 
 
 async def _get_or_create_cart(db: AsyncIOMotorDatabase, session_key: str) -> dict:
