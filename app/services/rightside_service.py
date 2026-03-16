@@ -97,24 +97,19 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "name": "add_to_cart",
             "description": (
                 "Add a confirmed item to the shopping cart. "
-                "CRITICAL — ANTI-CONFIRMATION-BIAS RULE: "
-                "You MUST NOT call this tool unless ALL THREE of the following slots have been "
-                "EXPLICITLY confirmed by the customer in the same conversation turn: "
-                "(1) item_name — the exact menu item including cut type (e.g. 'Chicken Curry Cut', NOT just 'Chicken'), "
-                "(2) variation — the exact size/weight (e.g. '500 Grms', '1 Kg'), "
-                "(3) quantity — how many units. "
-                "If ANY slot is assumed, inferred, or unconfirmed, do NOT call this tool. "
-                "Instead, ask a NEUTRAL clarification question (NOT a leading yes/no). "
-                "The customer confirmation is only valid if they saw the FULL structured summary "
-                "(item + variation + price) in the same bot turn before saying yes. "
-                "One call per item."
+                "CRITICAL RULES: "
+                "(1) item_name MUST be an EXACT character-for-character match from the MENU. "
+                "NEVER translate or substitute similar items (e.g., if customer says 'Mutton Keema' but menu has 'Mutton Mince', do NOT use 'Mutton Mince' — tell the customer it's not available and offer alternatives). "
+                "(2) ALL THREE slots must be EXPLICITLY confirmed by the customer: item_name, variation, quantity. "
+                "(3) The customer must have seen the FULL order summary (item + variation + price) before saying yes. "
+                "If ANY slot is assumed or unconfirmed, ask a NEUTRAL clarification question instead."
             ),
             "method": "POST",
             "url": f"{base}/api/add_to_cart",
             "parameters": [
                 {"name": "session_id", "type": "string", "description": "A random 6-digit number (e.g. 582910) that you MUST generate internally at the start of the call. Use this EXACT same number for EVERY tool call to track the cart.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from call metadata (e.g. +919876543210). Pass if available from metadata, otherwise omit.", "location": "body", "required": False},
-                {"name": "item_name", "type": "string", "description": "Exact name of the menu item including the cut type as listed in the menu (e.g. 'Chicken Curry Cut', 'Chicken Boneless Breast', NOT just 'Chicken'). Never call with a partial name or category.", "location": "body", "required": True},
+                {"name": "item_name", "type": "string", "description": "The EXACT item name as it appears in the MENU — character for character, no translation, no paraphrasing. If the customer's request does not exactly match any menu item name, do NOT call this tool. Instead tell the customer the item is not available.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "Item variation e.g. 250 Grms, 500 Grms, 750 Grms, 1 Kg, Pcs. Omit only if item has no variation.", "location": "body", "required": False},
                 {"name": "quantity", "type": "integer", "description": "Number of units. Default is 1.", "location": "body", "required": False}
             ]
@@ -158,7 +153,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "place_order",
-            "description": "Place final confirmed order. Call ONLY after items, total, delivery method and name all confirmed.",
+            "description": "Place final confirmed order. Call EXACTLY ONCE — never retry. If it returns success=false, tell the customer and do NOT call again. Call ONLY after all items verified via calculate_total, delivery method confirmed, and customer name collected.",
             "method": "POST",
             "url": f"{base}/api/place_order",
             "parameters": [

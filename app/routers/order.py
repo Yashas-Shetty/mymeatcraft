@@ -58,6 +58,14 @@ async def place_order(
             message="Address is required for DELIVERY orders.",
         )
 
+    # Check if order already placed for this session
+    existing_order = await db["orders"].find_one({"session_id": session_key})
+    if existing_order:
+        return PlaceOrderResponse(
+            success=False,
+            message=f"Order already placed for this session (Order ID: {existing_order.get('order_id', 'unknown')}). Cannot place another order.",
+        )
+
     # Get cart
     cart = await db["carts"].find_one({"session_id": session_key})
     if cart is None or not cart.get("items"):
@@ -99,6 +107,7 @@ async def place_order(
     )
     
     order_dict = order.model_dump()
+    order_dict["session_id"] = session_key  # Store session_id for duplicate order detection
     await db["orders"].insert_one(order_dict)
 
     # Clear the cart
