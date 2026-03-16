@@ -141,6 +141,22 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             ]
         },
         {
+            "name": "get_cart",
+            "description": (
+                "Check current cart contents from the database. Call this when: "
+                "(1) the customer asks what is in their cart, "
+                "(2) you need to verify if an item was successfully added, "
+                "(3) you need to check for duplicate items before adding. "
+                "Returns the real cart state — do NOT rely on conversation memory for cart state."
+            ),
+            "method": "POST",
+            "url": f"{base}/api/calculate_total",
+            "parameters": [
+                {"name": "session_id", "type": "string", "description": "Your 6-digit session code.", "location": "body", "required": True},
+                {"name": "caller_number", "type": "string", "description": "Caller phone if available.", "location": "body", "required": False}
+            ]
+        },
+        {
             "name": "place_order",
             "description": "Place final confirmed order. Call ONLY after items, total, delivery method and name all confirmed.",
             "method": "POST",
