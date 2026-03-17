@@ -174,8 +174,13 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
 
 
 
-async def build_rightside_payload() -> Dict[str, Any]:
-    """Build the full configuration payload for Rock8 Voice API."""
+async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
+    """Build the full configuration payload for Rock8 Voice API.
+    
+    Args:
+        caller_number: The caller's phone number, injected per-call by the webhook.
+                       When empty (e.g. sync/preview), leaves the placeholder for reference.
+    """
     settings = get_settings()
     now = datetime.datetime.now(IST)
     next_slot = (now + datetime.timedelta(minutes=30)).strftime("%H:%M")
@@ -191,7 +196,8 @@ async def build_rightside_payload() -> Dict[str, Any]:
 
     format_kwargs = {
         "current_date": now.strftime("%Y-%m-%d"),
-        "caller_number": "{caller_number}",
+        # If caller_number provided by webhook, inject it; otherwise keep placeholder intact
+        "caller_number": caller_number if caller_number else "{caller_number}",
         "menu_items": menu_summary,
         "current_time": now.strftime("%H:%M"),
         "next_slot": next_slot,
@@ -223,15 +229,22 @@ async def build_rightside_payload() -> Dict[str, Any]:
 async def configure_inbound() -> Dict[str, Any]:
     """POST configuration to Rock8 Voice API."""
     settings = get_settings()
-    payload = await build_rightside_payload()
+    
+    # New API requires only phone_number and webhook_url
+    # The full configuration (prompt, tools) is now fetched via the webhook
+    payload = {
+        "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
+        "webhook_url": f"{settings.BASE_URL}/api/rightside/webhook"
+    }
 
     url = f"{settings.RIGHTSIDE_API_URL}/inbound/configure"
     logger.info(f"Posting config to: {url}")
     logger.info(f"Phone: {settings.RIGHTSIDE_PHONE_NUMBER}")
-    logger.info(f"Tools base URL: {settings.BASE_URL}")
+    logger.info(f"Webhook URL: {payload['webhook_url']}")
 
     try:
         async with httpx.AsyncClient() as client:
+            # Note: Content-Type and X-API-Key are required headers
             resp = await client.post(
                 url,
                 headers={
@@ -266,18 +279,14 @@ async def update_inbound() -> Dict[str, Any]:
     if not settings.SIP_TRUNK_ID or not settings.DISPATCH_RULE_ID:
         raise ValueError("SIP_TRUNK_ID or DISPATCH_RULE_ID is not configured in environment.")
 
-    base_payload = await build_rightside_payload()
     logger.info(f"Updating with SIP_TRUNK_ID={settings.SIP_TRUNK_ID!r}, DISPATCH_RULE_ID={settings.DISPATCH_RULE_ID!r}")
 
     payload = {
         "sip_trunk_id": settings.SIP_TRUNK_ID,
         "dispatch_rule_id": settings.DISPATCH_RULE_ID,
-        # phone_number intentionally omitted — including it triggers a SIP trunk
-        # update internally (per Rock8 docs), which fails with "trunk id must not be set"
+        "phone_number": settings.RIGHTSIDE_PHONE_NUMBER,
+        "webhook_url": f"{settings.BASE_URL}/api/rightside/webhook"
     }
-    for k, v in base_payload.items():
-        if k != "phone_number":
-            payload[k] = v
 
     # API docs: PUT /inbound/update — both IDs go in the body, not the URL
     url = f"{settings.RIGHTSIDE_API_URL}/inbound/update"
