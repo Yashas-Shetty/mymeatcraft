@@ -109,6 +109,12 @@ async def place_order(
 
     # Sanitize customer name — ensure it's in Latin script
     sanitized_name = _sanitize_customer_name(request.customer_name)
+    
+    if not sanitized_name or sanitized_name.lower() in ["unknown", "user", "guest", "customer"]:
+        return PlaceOrderResponse(
+            success=False,
+            message="Please ask the customer for their real name before placing the order.",
+        )
 
     # Create Order record
     order = MongoOrder(

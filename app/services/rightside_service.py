@@ -172,7 +172,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         },
         {
             "name": "place_order",
-            "description": "Place final confirmed order. Call EXACTLY ONCE — never retry. If it returns success=false, tell the customer and do NOT call again. Call ONLY after all items verified via calculate_total, delivery method confirmed, and customer name collected.",
+            "description": "Place final confirmed order. Call EXACTLY ONCE — never retry. If it returns success=false, tell the customer and do NOT call again. Call ONLY after all items verified via calculate_total, delivery method confirmed, and customer name collected. IF NAME IS UNKNOWN, YOU MUST FIRST ASK THE CUSTOMER THEIR NAME AND WAIT FOR THEIR REPLY.",
             "method": "POST",
             "url": f"{base}/api/place_order",
             "speak_during_execution": True,
@@ -182,7 +182,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
                 {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from metadata. Pass if available, otherwise omit.", "location": "body", "required": False},
                 {"name": "customer_phone", "type": "string", "description": "Same as caller_number. Optional.", "location": "body", "required": False},
-                {"name": "customer_name", "type": "string", "description": "Customer name. MUST be collected before calling this tool. If you do not have their name, ask them for it first! MUST be in English Latin script (e.g., 'Nikshit'). NEVER use Devanagari.", "location": "body", "required": True},
+                {"name": "customer_name", "type": "string", "description": "Customer's REAL name. Do NOT use fake names like 'Unknown', 'Customer', 'User', 'Guest'. IF YOU DO NOT KNOW THE NAME, YOU MUST ASK THE CUSTOMER BEFORE CALLING THIS TOOL. MUST be in English Latin script (e.g., 'Nikshit'). NEVER use Devanagari.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly DELIVERY or PICKUP.", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Only when order_type is DELIVERY.", "location": "body", "required": False},
                 {"name": "arrival_time", "type": "string", "description": "Expected pickup time. Only when order_type is PICKUP.", "location": "body", "required": False}
