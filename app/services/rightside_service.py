@@ -108,8 +108,11 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             ),
             "method": "POST",
             "url": f"{base}/api/add_to_cart",
+            "speak_during_execution": True,
+            "speak_message": "एक मिनट, मैं सिस्टम में update कर रही हूँ...",
+            "messages": [{"type": "request-start", "content": "एक मिनट, मैं सिस्टम में update कर रही हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "A random 6-digit number (e.g. 582910) that you MUST generate internally at the start of the call. Use this EXACT same number for EVERY tool call to track the cart.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from call metadata (e.g. +919876543210). Pass if available from metadata, otherwise omit.", "location": "body", "required": False},
                 {"name": "item_name", "type": "string", "description": "The EXACT item name as it appears in the MENU — character for character, no translation, no paraphrasing.", "location": "body", "required": True},
                 {"name": "variation", "type": "string", "description": "[MODE A only] Item variation e.g. '250 Grms', '500 Grms', '1 Kg', 'Pcs'. Omit in MODE B (custom_weight_kg) and for items with no variation.", "location": "body", "required": False},
@@ -126,8 +129,11 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             ),
             "method": "POST",
             "url": f"{base}/api/remove_from_cart",
+            "speak_during_execution": True,
+            "speak_message": "एक मिनट, मैं इसे हटा देती हूँ...",
+            "messages": [{"type": "request-start", "content": "एक मिनट, मैं इसे हटा देती हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The exact same random 6-digit number you generated at the start of the call.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact name of the menu item to remove.", "location": "body", "required": True},
                 {"name": "quantity", "type": "string", "description": "Weight to remove, e.g. '1 Kg', '500 Grms'. OMIT this to remove the entire item. Pass it only when the customer wants partial removal.", "location": "body", "required": False}
             ]
@@ -137,8 +143,11 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "description": "Get all items in cart and total price. Call after customer says done ordering.",
             "method": "POST",
             "url": f"{base}/api/calculate_total",
+            "speak_during_execution": True,
+            "speak_message": "ज़रा रुकिए, मैं आपका total check कर रही हूँ...",
+            "messages": [{"type": "request-start", "content": "ज़रा रुकिए, मैं आपका total check कर रही हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The exact same random 6-digit number you generated at the start of the call.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number. Pass if available.", "location": "body", "required": False}
             ]
         },
@@ -153,21 +162,27 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             ),
             "method": "POST",
             "url": f"{base}/api/calculate_total",
+            "speak_during_execution": True,
+            "speak_message": "एक मिनट, मैं आपका cart check करती हूँ...",
+            "messages": [{"type": "request-start", "content": "एक मिनट, मैं आपका cart check करती हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Your 6-digit session code.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller phone if available.", "location": "body", "required": False}
             ]
         },
         {
             "name": "place_order",
-            "description": "Place final confirmed order. Call EXACTLY ONCE — never retry. If it returns success=false, tell the customer and do NOT call again. Call ONLY after all items verified via calculate_total, delivery method confirmed, and customer name collected.",
+            "description": "Place final confirmed order. Call EXACTLY ONCE — never retry. If it returns success=false, tell the customer and do NOT call again. Call ONLY after all items verified via calculate_total, delivery method confirmed, and customer name collected. IF NAME IS UNKNOWN, YOU MUST FIRST ASK THE CUSTOMER THEIR NAME AND WAIT FOR THEIR REPLY.",
             "method": "POST",
             "url": f"{base}/api/place_order",
+            "speak_during_execution": True,
+            "speak_message": "बस एक पल, मैं आपका order systems में डाल रही हूँ...",
+            "messages": [{"type": "request-start", "content": "बस एक पल, मैं आपका order systems में डाल रही हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "The exact same random 6-digit number you generated at the start of the call.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from metadata. Pass if available, otherwise omit.", "location": "body", "required": False},
                 {"name": "customer_phone", "type": "string", "description": "Same as caller_number. Optional.", "location": "body", "required": False},
-                {"name": "customer_name", "type": "string", "description": "Customer name collected at start of call in Step 1. MUST be in English Latin script (e.g., 'Nikshit', 'Rahul', 'Priya'). NEVER use Devanagari or any non-Latin script. If the STT transcribed the name in Hindi/Devanagari, transliterate it to English Latin before passing it here.", "location": "body", "required": True},
+                {"name": "customer_name", "type": "string", "description": "Customer's REAL name. Do NOT use fake names like 'Unknown', 'Customer', 'User', 'Guest'. IF YOU DO NOT KNOW THE NAME, YOU MUST ASK THE CUSTOMER BEFORE CALLING THIS TOOL. MUST be in English Latin script (e.g., 'Nikshit'). NEVER use Devanagari.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly DELIVERY or PICKUP.", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Only when order_type is DELIVERY.", "location": "body", "required": False},
                 {"name": "arrival_time", "type": "string", "description": "Expected pickup time. Only when order_type is PICKUP.", "location": "body", "required": False}
@@ -176,25 +191,31 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         {
             "name": "get_item_price",
             "description": (
-                "Look up pricing for a weight-based menu item. TWO USE CASES: "
-                "USE CASE 1 (custom weight, e.g. '4.2 kg ka price kya hai' or customer requests non-standard weight): "
-                "  Call with item_name only (no budget). Response gives price_per_kg. "
-                "  Compute total price = custom_weight_kg * price_per_kg. "
-                "  Confirm with customer: '[weight] kg [item] — [price] Rupees. Add kar doon?' "
-                "  On confirmation, call add_to_cart with item_name + custom_weight_kg (NOT variation/quantity). "
-                "USE CASE 2 (budget-based, e.g. '300 rupees ka chicken chahiye'): "
+                "Look up pricing for a menu item and get the server-computed total price. THREE USE CASES: "
+                "USE CASE 1 (custom weight, e.g. '3.3 kg mutton boneless'): "
+                "  Call with item_name AND custom_weight_kg. Response gives computed_total_price (server-computed). "
+                "  Confirm with customer: '[weight] kg [item] — [computed_total_price] Rupees. Add kar doon?' "
+                "  On confirmation, call add_to_cart with custom_weight_kg_to_add (from the response). "
+                "  NEVER compute the price yourself. ALWAYS use computed_total_price from the response. "
+                "USE CASE 2 (budget-based, e.g. '300 rupees ka chicken'): "
                 "  Call with item_name AND budget (rupees, as a number). "
-                "  Response gives max_weight_human (e.g. '750 Grms') and actual_cost. "
-                "  Also gives custom_weight_kg_to_add — use this directly in add_to_cart. "
-                "  Confirm: '[budget] Rupees mein [max_weight_human] milega — [actual_cost] Rupees. Add kar doon?' "
-                "  On confirmation, call add_to_cart with item_name + custom_weight_kg=custom_weight_kg_to_add. "
-                "Do NOT call this for standard menu variations (500 Grms, 1 Kg etc.) — those have known prices."
+                "  Response gives max_weight_human and actual_cost. "
+                "  On confirmation, call add_to_cart with custom_weight_kg=custom_weight_kg_to_add. "
+                "USE CASE 3 (price inquiry, e.g. 'mutton boneless ka rate kya hai'): "
+                "  Call with item_name only. Response gives price_per_kg and variation details. "
+                "CRITICAL: For ANY non-standard weight (3.3 kg, 2.5 kg, 750 grams, etc.), "
+                "ALWAYS call this tool with custom_weight_kg FIRST, use the computed_total_price, "
+                "and NEVER try to calculate the price yourself."
             ),
             "method": "POST",
             "url": f"{base}/api/get_item_price",
+            "speak_during_execution": True,
+            "speak_message": "एक मिनट, मैं price check कर रही हूँ...",
+            "messages": [{"type": "request-start", "content": "एक मिनट, मैं price check कर रही हूँ..."}],
             "parameters": [
-                {"name": "session_id", "type": "string", "description": "Your 6-digit session code.", "location": "body", "required": True},
+                {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
                 {"name": "item_name", "type": "string", "description": "Exact menu item name to look up.", "location": "body", "required": True},
+                {"name": "custom_weight_kg", "type": "number", "description": "Customer's requested weight in kilograms (e.g. 3.3, 0.75, 2.5). Pass this for ANY non-standard weight request. Server computes the total price — you MUST use the returned computed_total_price and NEVER calculate it yourself.", "location": "body", "required": False},
                 {"name": "budget", "type": "number", "description": "Customer's budget in rupees. Pass ONLY for budget-based ordering (e.g. '300 rupees ka de do'). Omit for custom weight queries.", "location": "body", "required": False}
             ]
         }
@@ -222,10 +243,14 @@ async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
         logger.error(f"Failed to read prompt file: {e}")
         prompt_template = "You are Riya, a Meatcraft assistant. Help the user order."
 
+    import random
+    session_id = str(random.randint(100000, 999999))
+    
     format_kwargs = {
         "current_date": now.strftime("%Y-%m-%d"),
         # If caller_number provided by webhook, inject it; otherwise keep placeholder intact
         "caller_number": caller_number if caller_number else "{caller_number}",
+        "session_id": session_id,
         "menu_items": menu_summary,
         "current_time": now.strftime("%H:%M"),
         "next_slot": next_slot,
