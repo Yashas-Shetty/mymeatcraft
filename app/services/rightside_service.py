@@ -262,7 +262,8 @@ async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
         "language": "hi",
         "voice": "faf0731e-dfb9-4cfc-8119-259a79b27e12",
         "llm_config": {
-            "model": "gpt-4o-mini"
+            "model": "gpt-4o-mini",
+            "model_type": "standard"
         },
         "stt_config": {
             "provider": "deepgram",
