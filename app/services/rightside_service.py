@@ -267,7 +267,7 @@ async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
         "stt_config": {
             "provider": "deepgram",
             "config": {
-                "model": "nova-3",
+                "model": "nova-2",
                 "language": "hi"
             }
         },
