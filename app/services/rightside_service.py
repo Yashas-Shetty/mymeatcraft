@@ -214,13 +214,27 @@ async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
     now = datetime.datetime.now(IST)
     next_slot = (now + datetime.timedelta(minutes=30)).strftime("%H:%M")
 
-    # Read the prompt template from file — SafeDict keeps un-replaced {placeholders} intact
+    from app.database import db_instance
+
+    # Read the prompt template from DB, fallback to file — SafeDict keeps un-replaced {placeholders} intact
+    prompt_template = None
     try:
-        with open("prompt.txt", "r", encoding="utf-8") as f:
-            prompt_template = f.read()
+        if db_instance.db is not None:
+            config_doc = await db_instance.db["config"].find_one({"type": "prompt"})
+            if config_doc and "content" in config_doc:
+                prompt_template = config_doc["content"]
+                logger.info("Loaded prompt template from MongoDB")
     except Exception as e:
-        logger.error(f"Failed to read prompt file: {e}")
-        prompt_template = "You are रिया, a मीटक्राफ्ट assistant. Help the user order."
+        logger.error(f"Failed to read prompt from DB: {e}")
+
+    if not prompt_template:
+        try:
+            with open("prompt.txt", "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+                logger.info("Loaded prompt from prompt.txt (fallback)")
+        except Exception as e:
+            logger.error(f"Failed to read prompt file: {e}")
+            prompt_template = "You are रिया, a मीटक्राफ्ट assistant. Help the user order."
 
     import random
     session_id = str(random.randint(100000, 999999))
