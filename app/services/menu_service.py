@@ -23,12 +23,25 @@ import json
 import os
 from pathlib import Path
 
+from app.database import db_instance
+
 async def fetch_menu_from_api() -> Dict[str, Any]:
     """
-    Fetch full menu from the local menu.txt file.
+    Fetch full menu from MongoDB config collection.
+    Falls back to local menu.txt file.
     Returns parsed JSON menu data.
     """
-    # menu.txt is in the project root
+    # Try reading from DB first
+    try:
+        if db_instance.db is not None:
+            config_doc = await db_instance.db["config"].find_one({"type": "menu"})
+            if config_doc and "data" in config_doc:
+                logger.info("Menu loaded successfully from DB")
+                return config_doc["data"]
+    except Exception as e:
+        logger.error(f"Failed to read menu from DB: {e}")
+
+    # Fallback to local file
     file_path = Path(__file__).parent.parent.parent / "menu.txt"
     
     if not file_path.exists():
@@ -39,7 +52,7 @@ async def fetch_menu_from_api() -> Dict[str, Any]:
         with open(file_path, "r", encoding="utf-8-sig") as f:
             raw = f.read().lstrip("\ufeff\u200b")  # Strip BOM and zero-width space
             data = json.loads(raw)
-            logger.info("Menu loaded successfully from menu.txt")
+            logger.info("Menu loaded successfully from menu.txt (fallback)")
             return data
     except Exception as e:
         logger.error(f"Error reading menu.txt: {e}")
