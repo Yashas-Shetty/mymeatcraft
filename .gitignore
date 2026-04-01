@@ -119,6 +119,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+myenv/
 
 # Spyder project settings
 .spyderproject
@@ -155,3 +156,5 @@ cython_debug/
 *.db
 frontend/node_modules/
 payload_dump.json
+prompt.txt
+menu.txt

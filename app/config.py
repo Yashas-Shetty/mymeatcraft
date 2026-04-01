@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Meatcraft Voice Ordering"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
-    BASE_URL: str = "https://nonsciatic-fulsomely-rodney.ngrok-free.dev"
+    BASE_URL: str
 
     # Database
     MONGODB_URL: str
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Rightside AI
     RIGHTSIDE_API_KEY: str = ""
-    RIGHTSIDE_API_URL: str = "https://voice.rock8.ai"
+    RIGHTSIDE_API_URL: str = "https://devvoice.rock8.ai"
     RIGHTSIDE_PHONE_NUMBER: str = ""
     SIP_TRUNK_ID: str = ""
     DISPATCH_RULE_ID: str = ""

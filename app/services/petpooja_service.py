@@ -28,8 +28,6 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-PETPOOJA_SAVE_ORDER_URL = "https://pponlineordercb.petpooja.com/save_order"
-# IST initialized above
 
 from app.services.menu_service import get_menu
 
@@ -246,21 +244,27 @@ async def send_to_petpooja(order, order_items: list) -> bool:
     
     logger.info(f"PetPooja payload:\n{json.dumps(payload, indent=2)}")
 
+    settings = get_settings()
+    petpooja_url = settings.PETPOOJA_API_URL
+    logger.info(f"Posting to PetPooja URL: {petpooja_url}")
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
-                PETPOOJA_SAVE_ORDER_URL,
+                petpooja_url,
                 headers={"Content-Type": "application/json"},
-                json=payload,
+                json={"petpooja_payload": payload},
             )
 
         logger.info(f"PetPooja [{response.status_code}]: {response.text[:300]}")
 
         if response.status_code == 200:
             data = response.json()
-            # PetPooja returns {"status": 1, "message": "..."} on success
-            if str(data.get("status")) == "1":
-                logger.info(f"Order {order.order_id} accepted by PetPooja ✅")
+            # Proxy wraps response: {"status": "success", "api_response": {"success": "1", ...}}
+            # Also handle direct PetPooja format: {"status": 1, ...}
+            api_resp = data.get("api_response", {})
+            if data.get("status") == "success" or str(api_resp.get("success")) == "1" or str(data.get("status")) == "1":
+                logger.info(f"Order {order.order_id} accepted by PetPooja ✅ — {api_resp.get('message', '')}")
                 return True
             logger.warning(f"PetPooja rejected order {order.order_id}: {data}")
             return False

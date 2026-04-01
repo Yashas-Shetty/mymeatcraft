@@ -2,9 +2,9 @@
 Rightside router — endpoint to configure inbound calling via Rightside AI.
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict, Optional
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from typing import Optional
 from app.services.rightside_service import configure_inbound, build_rightside_payload, update_inbound, delete_inbound
 
 logger = logging.getLogger(__name__)
@@ -42,6 +42,40 @@ async def preview_payload():
         payload = await build_rightside_payload()
         return payload
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rightside/webhook")
+async def rightside_webhook(request: Request):
+    """
+    Webhook endpoint called by Rock8 on each inbound call.
+    Rock8 POSTs call metadata (including caller phone number) here and expects
+    the full agent config (prompt, tools, voice, stt) back in the response.
+    """
+    try:
+        # Parse the incoming JSON body from Rock8 — may contain caller metadata
+        try:
+            body: Dict[str, Any] = await request.json()
+        except Exception:
+            body = {}
+
+        # Extract caller number — Rock8 may send it under different field names
+        caller_number = (
+            body.get("caller_id")
+            or body.get("caller_number")
+            or body.get("from_number")
+            or body.get("caller")
+            or body.get("phone_number")
+            or ""
+        )
+
+        logger.info(f"Rock8 webhook received — caller: {caller_number!r}, body keys: {list(body.keys())}")
+
+        # Build the response payload with the actual caller number injected into the prompt
+        payload = await build_rightside_payload(caller_number=caller_number)
+        return payload
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

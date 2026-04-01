@@ -8,9 +8,7 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Fixed test number per user request
-# NOTIFY_NUMBER = "917899069448"
-NOTIFY_NUMBER = "916361949135"
+# Removed hardcoded NOTIFY_NUMBER per user request - now using dynamic customer numbers
 
 # Note: Replaced hardcoded values with dynamic env variables via get_settings()
 def send_order_confirmation(customer_phone: str, order_id: str) -> bool:
@@ -25,9 +23,8 @@ def send_order_confirmation(customer_phone: str, order_id: str) -> bool:
     Returns:
         True if the message was sent successfully, False otherwise.
     """
-    # Note: Hardcoded to NOTIFY_NUMBER for testing instead of customer_phone
     # Ensure the phone number doesn't have a leading '+'
-    to = NOTIFY_NUMBER.lstrip("+")
+    to = customer_phone.lstrip("+")
 
     payload = {
         "messaging_product": "whatsapp",
@@ -83,7 +80,7 @@ def send_payment_link_message(customer_phone: str, order_id: str, payment_link: 
     """
     Send the payment link using the verified Meta WhatsApp template `meatcraft_payment_link`.
     """
-    to = NOTIFY_NUMBER.lstrip("+")
+    to = customer_phone.lstrip("+")
 
     payload = {
         "messaging_product": "whatsapp",
@@ -140,7 +137,7 @@ def send_payment_received_message(customer_phone: str, order_id: str) -> bool:
     """
     Send payment received confirmation using the verified Meta WhatsApp template `meatcraft_payment_received`.
     """
-    to = NOTIFY_NUMBER.lstrip("+")
+    to = customer_phone.lstrip("+")
 
     payload = {
         "messaging_product": "whatsapp",
