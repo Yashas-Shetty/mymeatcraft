@@ -160,8 +160,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
             "messages": [{"type": "request-start", "content": "बस एक पल, मैं आपका order systems में डाल रही हूँ..."}],
             "parameters": [
                 {"name": "session_id", "type": "string", "description": "The exact assigned 6-digit session code given to you.", "location": "body", "required": True},
-                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from metadata. Pass if available, otherwise omit.", "location": "body", "required": False},
-                {"name": "customer_phone", "type": "string", "description": "Same as caller_number. Optional.", "location": "body", "required": False},
+                {"name": "caller_number", "type": "string", "description": "Caller's actual phone number from metadata. You MUST pass this exact number.", "location": "body", "required": True},
                 {"name": "customer_name", "type": "string", "description": "Customer's REAL name. Do NOT use fake names like 'Unknown', 'Customer', 'User', 'Guest'. IF YOU DO NOT KNOW THE NAME, YOU MUST ASK THE CUSTOMER BEFORE CALLING THIS TOOL. MUST be in English Latin script (e.g., 'Nikshit'). NEVER use Devanagari.", "location": "body", "required": True},
                 {"name": "order_type", "type": "string", "description": "Must be exactly DELIVERY or PICKUP.", "location": "body", "required": True},
                 {"name": "address", "type": "string", "description": "Full delivery address. Only when order_type is DELIVERY.", "location": "body", "required": False},
@@ -258,34 +257,34 @@ async def build_rightside_payload(caller_number: str = "") -> Dict[str, Any]:
         #     "model": "gpt-5-mini",
         #     "model_type": "standard"
         # },
+        "stt_config": {
+            "provider": "deepgram",
+            "config": {
+                "model": "nova-3",
+                "language": "hi"
+            }
+        },
         # "stt_config": {
-        #     "provider": "deepgram",
+        #     "provider": "assemblyai",
         #     "config": {
-        #         "model": "nova-3",
-        #         "language": "hi"
+        #         "model": "u3-rt-pro"
         #     }
         # },
-        "stt_config": {
-            "provider": "assemblyai",
-            "config": {
-                "model": "u3-rt-pro"
-            }
-        },
         "llm_config": {
-            "provider": "openai",
+            "provider": "gemini",
             "config": {
-                "model": "gpt-4o-mini"
+                "model": "gemini-3.1-flash-lite-preview"
             }
         },
-        "tts_config": {
-            "provider": "sarvam",
-            "config": {
-                "target_language_code": "hi-IN",
-                "model": "bulbul:v2",
-                "speaker": "karun",
-                "pace": 1.2
-            }
-        },
+        # "tts_config": {
+        #     "provider": "sarvam",
+        #     "config": {
+        #         "target_language_code": "hi-IN",
+        #         "model": "bulbul:v2",
+        #         "speaker": "vidya",
+        #         "pace": 1.2
+        #     }
+        # },
         "vad_config": {
             "min_silence_duration": 0.25,
             "activation_threshold": 0.3,
